@@ -19,6 +19,7 @@ pico_sdk_init()
 add_executable(gba-cart-read
     cartridge.cpp
     debug.cpp
+    filesystem.cpp
     gba-cart-read.cpp
     usb.cpp
     usb_descriptors.c
