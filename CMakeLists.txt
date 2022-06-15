@@ -24,6 +24,8 @@ add_executable(gba-cart-read
     usb_descriptors.c
 )
 
+pico_generate_pio_header(gba-cart-read ${CMAKE_CURRENT_LIST_DIR}/gba-cart.pio)
+
 pico_set_program_name(gba-cart-read "gba-cart-read")
 pico_set_program_version(gba-cart-read "0.1")
 

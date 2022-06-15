@@ -1,0 +1,32 @@
+.program gba_cart
+.side_set 4 opt
+
+; sideset wr, rd, romCS, ramCS
+
+pull
+out x, 32 ; halfwords to read
+
+pull
+out pins, 16 ; address
+
+nop side 0b1011 ; rom cs active
+
+; set data pins to input
+; (there are 16 bits of 0s left in OSR)
+out pindirs 16
+
+loop:
+nop side 0b1001 ; cs/rd active
+in pins, 16 side 0b1011 ; read, rd inactive
+jmp x-- loop
+
+nop side 0b1111 ; rom cs inactive
+
+; get -1 in y
+set y, 0
+l:
+jmp y-- l
+
+; set data pins to output
+mov osr, y
+out pindirs 16
