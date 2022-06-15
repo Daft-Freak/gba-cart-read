@@ -2,6 +2,7 @@
 #include "tusb.h"
 
 #include "cartridge.hpp"
+#include "filesystem.hpp"
 
 int main()
 {
@@ -10,6 +11,8 @@ int main()
     tusb_init();
 
     Cartridge::initIO();
+
+    Filesystem::setTargetSize(32 * 1024 * 1024); // TODO
 
     while(true)
     {

@@ -67,13 +67,18 @@ static constexpr unsigned int nextPowerOf2(unsigned int i)
 
 namespace Filesystem
 {
-    void readSector(uint32_t sector, uint8_t *buf)
-    {
-        const int targetSize = 32 * 1024 * 1024; // how much data we want
+    const int numReservedSectors = 1;
+    const int maxRootEntries = 16;
+    const int sectorSize = 512;
 
-        const int numReservedSectors = 1;
-        const int maxRootEntries = 16;
-        const int sectorSize = 512;
+    static uint32_t targetSize = 1;
+    static int sectorsPerCluster = 1, sectorsPerFAT = 1;
+    uint32_t numSectors = 1;
+
+    // this is how much data we want
+    void setTargetSize(uint32_t size)
+    {
+        targetSize = size;
 
         const int maxClusters = 4085; // FAT12
 
@@ -83,21 +88,28 @@ namespace Filesystem
         const int paddedSectors = (targetSize + (sectorSize - 1)) / sectorSize + numReservedSectors + (maxRootEntries * 32) / sectorSize + largestFAT;
 
         // calc cluster size
-        const int sectorsPerCluster = nextPowerOf2((paddedSectors + maxClusters - 1) / maxClusters);
+        sectorsPerCluster = nextPowerOf2((paddedSectors + maxClusters - 1) / maxClusters);
 
         const int numClusters = paddedSectors / sectorsPerCluster;
 
         // + 1 to round, + 2 for reserved
-        const int sectorsPerFAT = (((numClusters + 3) / 2 * 3) + (sectorSize - 1)) / sectorSize;
+        sectorsPerFAT = (((numClusters + 3) / 2 * 3) + (sectorSize - 1)) / sectorSize;
 
-        // shrink to actual FAT size
-        const int numSectors = paddedSectors - (largestFAT - sectorsPerFAT);
+        numSectors = paddedSectors - (largestFAT - sectorsPerFAT);
+    }
 
+    uint32_t getNumSectors()
+    {
+        return numSectors;
+    }
+
+    void readSector(uint32_t sector, uint8_t *buf)
+    {
         const char *label = "DAFTVOLUME "; // 11 chars
 
         // offsets
-        const int rootDirStart = numReservedSectors + sectorsPerFAT /* * numFATs*/;
-        const int dataRegionStart = rootDirStart + maxRootEntries * 32 / sectorSize;
+        const uint32_t rootDirStart = numReservedSectors + sectorsPerFAT /* * numFATs*/;
+        const uint32_t dataRegionStart = rootDirStart + maxRootEntries * 32 / sectorSize;
 
         if(sector == 0) // VBR
         {

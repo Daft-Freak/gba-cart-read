@@ -67,7 +67,7 @@ void tud_msc_capacity_cb(uint8_t lun, uint32_t *block_count, uint16_t *block_siz
     (void) lun;
 
     *block_size = 512;
-    *block_count = (33 * 1024 * 1024) / 512; // TODO
+    *block_count = Filesystem::getNumSectors();
 }
 
 bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, bool load_eject)
