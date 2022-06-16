@@ -95,10 +95,14 @@ namespace Filesystem
         // worst-case FAT size
         const int largestFAT = 12; // 4096 clusters
 
-        const int paddedSectors = (targetSize + (sectorSize - 1)) / sectorSize + numReservedSectors + (maxRootEntries * 32) / sectorSize + largestFAT;
+        int targetSectors = (targetSize + (sectorSize - 1)) / sectorSize;
+        int paddedSectors =  targetSectors + numReservedSectors + (maxRootEntries * 32) / sectorSize + largestFAT;
 
         // calc cluster size
         sectorsPerCluster = nextPowerOf2((paddedSectors + maxClusters - 1) / maxClusters);
+
+        // round to cluster size
+        paddedSectors += sectorsPerCluster - (targetSectors % sectorsPerCluster);
 
         const int numClusters = paddedSectors / sectorsPerCluster;
 
