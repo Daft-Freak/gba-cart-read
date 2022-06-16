@@ -17,4 +17,6 @@ namespace Cartridge
     void readROM(uint32_t addr, uint16_t *data, int count);
 
     HeaderInfo readHeader();
+
+    uint32_t getROMSize();
 }
