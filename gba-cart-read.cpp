@@ -56,6 +56,8 @@ int main()
                     // only one handled so far
                     if(saveType == Cartridge::SaveType::RAM)
                         saveSize = 32 * 1024;
+                    else if(saveType == Cartridge::SaveType::Flash_64K)
+                        saveSize = 64 * 1024;
 
                     Filesystem::setTargetSize(romSize + saveSize);
 
