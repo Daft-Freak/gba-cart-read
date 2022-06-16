@@ -12,6 +12,11 @@ static void readROM(uint32_t offset, uint32_t len, uint8_t *buf)
     Cartridge::readROM(offset, reinterpret_cast<uint16_t *>(buf), len / 2);
 }
 
+static void readSave(uint32_t offset, uint32_t len, uint8_t *buf)
+{
+    Cartridge::readRAMSave(offset, buf, len);
+}
+
 int main()
 {
     stdio_init_all();
@@ -45,10 +50,20 @@ int main()
                     memcpy(curGameCode, header.gameCode, 4);
         
                     auto romSize = Cartridge::getROMSize();
-                    Filesystem::setTargetSize(romSize);
+                    uint32_t saveSize = 0;
+                    auto saveType = Cartridge::getSaveType(romSize);
+
+                    // only one handled so far
+                    if(saveType == Cartridge::SaveType::RAM)
+                        saveSize = 32 * 1024;
+
+                    Filesystem::setTargetSize(romSize + saveSize);
 
                     Filesystem::resetFiles();
                     Filesystem::addFile(0, romSize, header.gameCode, "GBA", readROM);
+
+                    if(saveSize)
+                        Filesystem::addFile(romSize, saveSize, header.gameCode, "SAV", readSave);
                 }
             }
             else
