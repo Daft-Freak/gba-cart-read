@@ -25,7 +25,11 @@ namespace Cartridge
     void initIO();
 
     void readROM(uint32_t addr, uint16_t *data, int count);
+    
     void readRAMSave(uint16_t addr, uint8_t *data, int count);
+    void writeRAMSave(uint16_t addr, const uint8_t *data, int count);
+
+    void readFlashSave(uint32_t addr, uint8_t *data, int count);
 
     HeaderInfo readHeader();
 

@@ -20,6 +20,8 @@ namespace Cartridge
 {
     int pioSM = -1;
 
+    static int curFlashBank = -1;
+
     static void gba_multi_program_init(PIO pio, uint sm, uint offset)
     {
         int basePin = 0;
@@ -123,6 +125,63 @@ namespace Cartridge
         pio_sm_set_enabled(pio0, pioSM, true);
     }
 
+    void writeRAMSave(uint16_t addr, const uint8_t *data, int count)
+    {
+        // also used for flash commands
+        assert(addr + count <= 0x8000);
+
+        // disable PIO, and manually set pins
+        pio_sm_set_enabled(pio0, pioSM, false);
+
+        auto addressMask = (1 << 16) - 1;
+
+        pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << ramCSPin); // cs active
+        sleep_us(1);
+        
+        while(count--)
+        {
+            pio_sm_set_pins_with_mask(pio0, pioSM, addr, addressMask); // write address
+            gpio_put_masked(0xFF << 16, *data++ << 16); // write data
+
+            pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << wrPin); // wr
+            sleep_us(1);
+            pio_sm_set_pins_with_mask(pio0, pioSM, 1 << wrPin, 1 << wrPin);
+
+            addr++;
+        }
+
+        pio_sm_set_pins_with_mask(pio0, pioSM, 1 << ramCSPin, 1 << ramCSPin); // cs inactive
+
+        pio_sm_set_enabled(pio0, pioSM, true);
+    }
+
+    // only needed for 128k saves
+    void readFlashSave(uint32_t addr, uint8_t *data, int count)
+    {
+        // no crossing banks
+        assert((addr & 0xFFFF) + count <= 0x10000);
+
+        int bank = addr >> 16;
+
+        if(bank != curFlashBank)
+        {
+            // switch
+            uint8_t v = 0xAA;
+            writeRAMSave(0x5555, &v, 1);
+            v = 0x55;
+            writeRAMSave(0x2AAA, &v, 1);
+            v = 0xB0;
+            writeRAMSave(0x5555, &v, 1);
+
+            v = bank;
+            writeRAMSave(0, &v, 1);
+
+            curFlashBank = bank;
+        }
+
+        readRAMSave(addr & 0xFFFF, data, count);
+    }
+
     HeaderInfo readHeader()
     {
         HeaderInfo header = {};
@@ -203,7 +262,10 @@ namespace Cartridge
                     return SaveType::Flash_64K;
 
                 if(memcmp(buf, "FLASH1M_V", 9) == 0)
+                {
+                    curFlashBank = -1;
                     return SaveType::Flash_128K;
+                }
             }
         }
 

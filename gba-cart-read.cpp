@@ -7,6 +7,8 @@
 
 static char curGameCode[4]{0};
 
+static Cartridge::SaveType saveType = Cartridge::SaveType::Unknown;
+
 static void readROM(uint32_t offset, uint32_t len, uint8_t *buf)
 {
     Cartridge::readROM(offset, reinterpret_cast<uint16_t *>(buf), len / 2);
@@ -14,7 +16,10 @@ static void readROM(uint32_t offset, uint32_t len, uint8_t *buf)
 
 static void readSave(uint32_t offset, uint32_t len, uint8_t *buf)
 {
-    Cartridge::readRAMSave(offset, buf, len);
+    if(saveType == Cartridge::SaveType::Flash_128K)
+        Cartridge::readFlashSave(offset, buf, len);
+    else
+        Cartridge::readRAMSave(offset, buf, len); // this is okay for 64k flash
 }
 
 int main()
@@ -51,13 +56,14 @@ int main()
         
                     auto romSize = Cartridge::getROMSize();
                     uint32_t saveSize = 0;
-                    auto saveType = Cartridge::getSaveType(romSize);
+                    saveType = Cartridge::getSaveType(romSize);
 
-                    // only one handled so far
                     if(saveType == Cartridge::SaveType::RAM)
                         saveSize = 32 * 1024;
                     else if(saveType == Cartridge::SaveType::Flash_64K)
                         saveSize = 64 * 1024;
+                    else if(saveType == Cartridge::SaveType::Flash_128K)
+                        saveSize = 128 * 1024;
 
                     Filesystem::setTargetSize(romSize + saveSize);
 
