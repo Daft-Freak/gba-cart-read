@@ -71,14 +71,20 @@ namespace Filesystem
     const int maxRootEntries = 16;
     const int sectorSize = 512;
 
-    static uint32_t targetSize = 1;
+    static uint32_t targetSize = 0;
     static int sectorsPerCluster = 1, sectorsPerFAT = 1;
-    uint32_t numSectors = 1;
+    uint32_t numSectors = 0;
 
     // this is how much data we want
     void setTargetSize(uint32_t size)
     {
         targetSize = size;
+
+        if(!targetSize)
+        {
+            numSectors = 0;
+            return;
+        }
 
         const int maxClusters = 4085; // FAT12
 
