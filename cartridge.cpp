@@ -87,6 +87,42 @@ namespace Cartridge
             *data++ = pio_sm_get_blocking(pio0, pioSM) >> 16;
     }
 
+    void readRAMSave(uint16_t addr, uint8_t *data, int count)
+    {
+        // should also be good for 64k flash
+        assert(addr + count <= 0x10000);
+
+        // disable PIO, and manually set pins
+        pio_sm_set_enabled(pio0, pioSM, false);
+
+        auto addressMask = (1 << 16) - 1;
+
+        pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << ramCSPin); // cs active
+        sleep_us(1);
+        
+        // the high 8 bits from the ROM addr are the data pins here
+        gpio_set_dir_in_masked(0xFF << 16);
+
+        while(count--)
+        {
+            pio_sm_set_pins_with_mask(pio0, pioSM, addr, addressMask); // write address
+            pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << rdPin); // rd
+            sleep_us(1);
+
+            *data++ = gpio_get_all() >> 16;
+
+            pio_sm_set_pins_with_mask(pio0, pioSM, 1 << rdPin, 1 << rdPin);
+            sleep_us(1);
+            addr++;
+        }
+
+        pio_sm_set_pins_with_mask(pio0, pioSM, 1 << ramCSPin, 1 << ramCSPin); // cs inactive
+
+        gpio_set_dir_out_masked(0xFF << 16);
+
+        pio_sm_set_enabled(pio0, pioSM, true);
+    }
+
     HeaderInfo readHeader()
     {
         HeaderInfo header = {};
