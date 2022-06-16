@@ -22,7 +22,7 @@ namespace Cartridge
 
     static int curFlashBank = -1;
 
-    static void gba_multi_program_init(PIO pio, uint sm, uint offset)
+    static void initPIO(PIO pio, uint sm, uint offset)
     {
         int basePin = 0;
         int addressPins = 24;
@@ -64,7 +64,7 @@ namespace Cartridge
         // init PIO
         uint offset = pio_add_program(pio0, &gba_cart_program);
         pioSM = pio_claim_unused_sm(pio0, true);
-        gba_multi_program_init(pio0, pioSM, offset);
+        initPIO(pio0, pioSM, offset);
 
         // init high address bits (PIO doesn't control these)
         auto mask = 0xFF << 16;
