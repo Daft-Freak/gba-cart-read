@@ -35,7 +35,12 @@ int main()
             {
                 // valid header, update cart size
                 memcpy(curGameCode, header.gameCode, 4);
-                Filesystem::setTargetSize(Cartridge::getROMSize());
+    
+                auto romSize = Cartridge::getROMSize();
+                Filesystem::setTargetSize(romSize);
+
+                Filesystem::resetFiles();
+                Filesystem::addFile(0, romSize, "ROM", "GBA");
             }
             else
             {

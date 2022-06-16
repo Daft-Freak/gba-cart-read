@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <cstring>
 
 #include "filesystem.hpp"
@@ -73,7 +74,10 @@ namespace Filesystem
 
     static uint32_t targetSize = 0;
     static int sectorsPerCluster = 1, sectorsPerFAT = 1;
-    uint32_t numSectors = 0;
+    static uint32_t numSectors = 0;
+
+    static DirEntry rootEntries[maxRootEntries]{};
+    static int curDirEntry = 1; // 0 is the label
 
     // this is how much data we want
     void setTargetSize(uint32_t size)
@@ -107,6 +111,35 @@ namespace Filesystem
     uint32_t getNumSectors()
     {
         return numSectors;
+    }
+
+    void addFile(uint32_t offset, uint32_t size, const char *shortName, const char *shortExt)
+    {
+        if(curDirEntry >= maxRootEntries)
+            return;
+        
+        auto &entry = rootEntries[curDirEntry];
+
+        auto clusterSize = sectorsPerCluster * sectorSize;
+
+        // space pad the name
+        int len = strlen(shortName);
+        memcpy(entry.shortName, shortName, std::max(8, len));
+        for(int i = len; i < 8; i++)
+            entry.shortName[i] = ' ';
+
+        memcpy(entry.shortExt, shortExt, 3);
+
+        entry.startCluster = offset / clusterSize + 2; // must be a multiple of cluster size
+        entry.fileSize = size;
+
+        curDirEntry++;
+    }
+
+    void resetFiles()
+    {
+        curDirEntry = 1;
+        memset(rootEntries + 1, 0, sizeof(DirEntry) * (maxRootEntries - 1));
     }
 
     void readSector(uint32_t sector, uint8_t *buf)
@@ -155,6 +188,9 @@ namespace Filesystem
         {
             auto fatSector = sector - numReservedSectors;
 
+            auto startCluster = fatSector * sectorSize / 3 * 2;
+            auto endCluster = ((fatSector + 1) * sectorSize + 2) / 3 * 2; // rounded up
+
             // reserved clusters
             memset(buf, 0, sectorSize);
             if(fatSector == 0)
@@ -162,55 +198,77 @@ namespace Filesystem
                 buf[0] = 0xF8;
                 buf[1] = 0xFF;
                 buf[2] = 0xFF;
+                startCluster = 2;
             }
 
             // chains for files
-            uint32_t fileStart = 2;
-            uint32_t fileLen = targetSize / (sectorSize * sectorsPerCluster);
+            uint32_t cluster = startCluster;
 
-            int startCluster = std::max(fileStart, fatSector * sectorSize / 3 * 2);
-            int endCluster = std::min(fileStart + fileLen, ((fatSector + 1) * sectorSize + 2) / 3 * 2); // rounded up
+            auto clusterSize = sectorsPerCluster * sectorSize;
 
-            for(int cluster = startCluster; cluster < endCluster; cluster++)
+            while(cluster < endCluster)
             {
-                int pairOff = cluster / 2 * 3 - fatSector * sectorSize;
+                uint32_t fileStart = 0;
+                uint32_t fileLen = 0;
 
-                // next or EOF
-                int val = cluster == fileStart + fileLen - 1 ? 0xFFF : cluster + 1;
-
-                if(cluster & 1)
+                // find file
+                // assuming the files are in order...
+                for(auto &entry : rootEntries)
                 {
-                    // high bits
-                    if(pairOff != -2) // low bits are in previous sector
-                        buf[pairOff + 1] = (buf[pairOff + 1] & 0xF) | (val & 0xF) << 4;
-
-                    if(pairOff != sectorSize - 2) // high bits are in next sector
-                        buf[pairOff + 2] = val >> 4;
+                    fileLen = (entry.fileSize + clusterSize - 1) / clusterSize;
+                    if(cluster < entry.startCluster + fileLen)
+                    {
+                        fileStart = entry.startCluster;
+                        break;
+                    }
                 }
-                else
-                {
-                    // low bits
-                    if(pairOff != -1) // low bits are in previous sector
-                        buf[pairOff + 0] = val & 0xFF;
 
-                    if(pairOff != sectorSize - 1) // high bits are in next sector
-                        buf[pairOff + 1] = (buf[pairOff + 1] & 0xF0) | val >> 8;
+                // didin't find a file
+                if(!fileStart)
+                    break;
+
+                // clamping
+                cluster = std::max(fileStart, cluster);
+                auto fileEndCluster = std::min(fileStart + fileLen, endCluster);
+
+                for(; cluster < fileEndCluster; cluster++)
+                {
+                    int pairOff = cluster / 2 * 3 - fatSector * sectorSize;
+
+                    // next or EOF
+                    int val = cluster == fileStart + fileLen - 1 ? 0xFFF : cluster + 1;
+
+                    if(cluster & 1)
+                    {
+                        // high bits
+                        if(pairOff != -2) // low bits are in previous sector
+                            buf[pairOff + 1] = (buf[pairOff + 1] & 0xF) | (val & 0xF) << 4;
+
+                        if(pairOff != sectorSize - 2) // high bits are in next sector
+                            buf[pairOff + 2] = val >> 4;
+                    }
+                    else
+                    {
+                        // low bits
+                        if(pairOff != -1) // low bits are in previous sector
+                            buf[pairOff + 0] = val & 0xFF;
+
+                        if(pairOff != sectorSize - 1) // high bits are in next sector
+                            buf[pairOff + 1] = (buf[pairOff + 1] & 0xF0) | val >> 8;
+                    }
                 }
             }
         }
         else if(sector >= rootDirStart && sector < dataRegionStart) // root dir
         {
-            memset(buf, 0, sectorSize);
-            auto entries = reinterpret_cast<DirEntry *>(buf);
+            // we're assuming that there is exactly one sector of dir entries
+            assert(maxRootEntries * sizeof(DirEntry) == sectorSize);
 
-            memcpy(entries, label, 11); // name+ext of first entry
-            entries[0].attributes = 0x8; // label
+            // make sure the label is there
+            memcpy(rootEntries, label, 11); // name+ext of first entry
+            rootEntries[0].attributes = 0x8; // label
 
-            // A file
-            memcpy(entries[1].shortName, "ROM     ", 8);
-            memcpy(entries[1].shortExt, "GBA", 3);
-            entries[1].startCluster = 2;
-            entries[1].fileSize = targetSize;
+            memcpy(buf, rootEntries, sectorSize);
         }
         else if(sector >= dataRegionStart) // data region
         {
