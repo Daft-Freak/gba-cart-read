@@ -1,4 +1,6 @@
+#include <array>
 #include <cassert>
+#include <cstring>
 
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
@@ -83,5 +85,31 @@ namespace Cartridge
 
         while(count--)
             *data++ = pio_sm_get_blocking(pio0, pioSM) >> 16;
+    }
+
+    HeaderInfo readHeader()
+    {
+        HeaderInfo header = {};
+
+        uint16_t buf[96];
+        Cartridge::readROM(0, buf, std::size(buf));
+        
+        // checksum check
+        auto headerBytes = reinterpret_cast<uint8_t *>(buf);
+        int checksum = 0;
+        for(int i = 0xA0; i < 0xBD; i++)
+            checksum = checksum - headerBytes[i];
+
+        checksum = (checksum - 0x19) & 0xFF;
+
+        if(headerBytes[0xBD] != checksum)
+            return header;
+
+        header.checksumValid = true;
+
+        memcpy(header.title, headerBytes + 0xA0, 12);
+        memcpy(header.gameCode, headerBytes + 0xAC, 4);
+
+        return header;
     }
 }

@@ -13,18 +13,9 @@ int main()
 
     Cartridge::initIO();
 
-    uint16_t buf[96];
-    Cartridge::readROM(0, buf, std::size(buf));
-    
-    // checksum check
-    auto headerBytes = reinterpret_cast<uint8_t *>(buf);
-    int checksum = 0;
-    for(int i = 0xA0; i < 0xBD; i++)
-        checksum = checksum - headerBytes[i];
+    auto header = Cartridge::readHeader();
 
-    checksum = (checksum - 0x19) & 0xFF;
-
-    if(headerBytes[0xBD] == checksum)
+    if(header.checksumValid)
     {
         // size check
         // check for incrementing values
