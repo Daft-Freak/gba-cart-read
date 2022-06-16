@@ -12,6 +12,16 @@ namespace Cartridge
         bool checksumValid;
     };
 
+    enum class SaveType
+    {
+        Unknown,
+        EEPROM_512,
+        EEPROM_8K,
+        RAM, // 32K
+        Flash_64K,
+        Flash_128K
+    };
+
     void initIO();
 
     void readROM(uint32_t addr, uint16_t *data, int count);
@@ -20,4 +30,6 @@ namespace Cartridge
     HeaderInfo readHeader();
 
     uint32_t getROMSize();
+
+    SaveType getSaveType(uint32_t romSize);
 }

@@ -174,4 +174,39 @@ namespace Cartridge
 
         return size;
     }
+
+    SaveType getSaveType(uint32_t romSize)
+    {
+        // search for save type marker
+        // EEPROM, SRAM, FLASH, FLASH512, FLASH1M
+        uint16_t eepromStart = 0x4545 /*EE*/, sramStart = 0x5253 /*SR*/, flashStart = 0x4C46 /*FL*/;
+
+        uint16_t buf[6]{};
+
+        // skip the header, should be word aligned
+        for(uint32_t offset = 0xC0; offset < romSize; offset += 4)
+        {
+            Cartridge::readROM(offset, buf, 1);
+
+            // first two bytes match, check the rest
+            if(buf[0] == eepromStart || buf[0] == sramStart || buf[0] == flashStart)
+            {
+                Cartridge::readROM(offset, buf, 5);
+
+                if(memcmp(buf, "EEPROM_V", 8) == 0)
+                    return SaveType::Unknown; // TODO (could be 512bytes or 8K)
+
+                if(memcmp(buf, "SRAM_V", 6) == 0)
+                    return SaveType::RAM;
+
+                if(memcmp(buf, "FLASH_V", 7) == 0 || memcmp(buf, "FLASH512_V", 10) == 0)
+                    return SaveType::Flash_64K;
+
+                if(memcmp(buf, "FLASH1M_V", 9) == 0)
+                    return SaveType::Flash_128K;
+            }
+        }
+
+        return SaveType::Unknown;
+    }
 }
