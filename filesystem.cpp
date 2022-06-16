@@ -4,8 +4,6 @@
 
 #include "filesystem.hpp"
 
-#include "cartridge.hpp"
-
 struct [[gnu::packed]] VBR
 {
     // BPB
@@ -77,6 +75,7 @@ namespace Filesystem
     static uint32_t numSectors = 0;
 
     static DirEntry rootEntries[maxRootEntries]{};
+    static ReadFunc fileReadFuncs[maxRootEntries]{};
     static int curDirEntry = 1; // 0 is the label
 
     // this is how much data we want
@@ -117,12 +116,13 @@ namespace Filesystem
         return numSectors;
     }
 
-    void addFile(uint32_t offset, uint32_t size, const char *shortName, const char *shortExt)
+    void addFile(uint32_t offset, uint32_t size, const char *shortName, const char *shortExt, ReadFunc readFn)
     {
         if(curDirEntry >= maxRootEntries)
             return;
         
         auto &entry = rootEntries[curDirEntry];
+        fileReadFuncs[curDirEntry] = readFn;
 
         auto clusterSize = sectorsPerCluster * sectorSize;
 
@@ -277,7 +277,19 @@ namespace Filesystem
         else if(sector >= dataRegionStart) // data region
         {
             int off = (sector - dataRegionStart) * sectorSize;
-            Cartridge::readROM(off, (uint16_t *)buf, sectorSize / 2);
+
+            // find file
+            int i = 0;
+            for(auto &entry : rootEntries)
+            {
+                auto startByte = (entry.startCluster - 2) * sectorsPerCluster * sectorSize;
+                if(off >= startByte && off - startByte < entry.fileSize)
+                {
+                    fileReadFuncs[i](off - startByte, sectorSize, buf);
+                    break;
+                }
+                i++;
+            }
         }
     }
 }

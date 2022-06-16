@@ -7,6 +7,11 @@
 
 static char curGameCode[4]{0};
 
+static void readROM(uint32_t offset, uint32_t len, uint8_t *buf)
+{
+    Cartridge::readROM(offset, reinterpret_cast<uint16_t *>(buf), len / 2);
+}
+
 int main()
 {
     stdio_init_all();
@@ -43,7 +48,7 @@ int main()
                     Filesystem::setTargetSize(romSize);
 
                     Filesystem::resetFiles();
-                    Filesystem::addFile(0, romSize, header.gameCode, "GBA");
+                    Filesystem::addFile(0, romSize, header.gameCode, "GBA", readROM);
                 }
             }
             else
