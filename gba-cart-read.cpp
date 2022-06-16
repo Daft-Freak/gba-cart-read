@@ -33,14 +33,18 @@ int main()
 
             if(header.checksumValid)
             {
-                // valid header, update cart size
-                memcpy(curGameCode, header.gameCode, 4);
-    
-                auto romSize = Cartridge::getROMSize();
-                Filesystem::setTargetSize(romSize);
+                // valid header, check if cart is changing
+                if(memcmp(curGameCode, header.gameCode, 4) != 0)
+                {
+                    // update cart size
+                    memcpy(curGameCode, header.gameCode, 4);
+        
+                    auto romSize = Cartridge::getROMSize();
+                    Filesystem::setTargetSize(romSize);
 
-                Filesystem::resetFiles();
-                Filesystem::addFile(0, romSize, "ROM", "GBA");
+                    Filesystem::resetFiles();
+                    Filesystem::addFile(0, romSize, "ROM", "GBA");
+                }
             }
             else
             {
