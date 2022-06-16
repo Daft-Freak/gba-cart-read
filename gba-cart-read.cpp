@@ -43,7 +43,7 @@ int main()
                     Filesystem::setTargetSize(romSize);
 
                     Filesystem::resetFiles();
-                    Filesystem::addFile(0, romSize, "ROM", "GBA");
+                    Filesystem::addFile(0, romSize, header.gameCode, "GBA");
                 }
             }
             else
