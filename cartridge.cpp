@@ -182,6 +182,101 @@ namespace Cartridge
         readRAMSave(addr & 0xFFFF, data, count);
     }
 
+    void readEEPROMSave(uint16_t addr, uint64_t *data, int count, bool is8k)
+    {
+        assert((addr & 7) == 0);
+        assert((addr / 8) + count <= (is8k ? 0x400 : 0x40));
+
+        // disable PIO, and manually set pins
+        // (this could probably use PIO more)
+        pio_sm_set_enabled(pio0, pioSM, false);
+
+        auto addressMask = (1 << 16) - 1;
+
+        // write address (0x1FFFF00)
+        gpio_put_masked(0xFF << 16, 0xFF << 16);
+        pio_sm_set_pins_with_mask(pio0, pioSM, 0xFF80, addressMask);
+
+        pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << romCSPin); // cs active
+        
+        sleep_us(1);
+
+        // borrow the lowest bit of data
+        gpio_init(0);
+        gpio_set_dir(0, true);
+
+        // writing a stream of bits to the ROM area
+        auto writeBit = [](int b)
+        {
+            gpio_put(0, b);
+            pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << wrPin); // WR active
+            sleep_us(1);
+            pio_sm_set_pins_with_mask(pio0, pioSM, 1 << wrPin, 1 << wrPin);
+            sleep_us(1);
+        };
+
+        auto readBit = []()
+        {
+            pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << rdPin); // RD active
+            sleep_us(1);
+            int ret = gpio_get(0);
+            pio_sm_set_pins_with_mask(pio0, pioSM, 1 << rdPin, 1 << rdPin);
+            sleep_us(1);
+
+            return ret;
+        };
+
+        while(count--)
+        {
+            writeBit(1);
+            writeBit(1);
+
+            int addrBits = is8k ? 14 : 6;
+            uint16_t shiftedAddr = addr / 8;
+            if(!is8k)
+                shiftedAddr <<= 8;
+
+            // write address, MSB first
+            while(addrBits--)
+            {
+                writeBit((shiftedAddr >> 13) & 1);
+                shiftedAddr <<= 1;
+            }
+
+            writeBit(0);
+
+            // toggle cs
+            pio_sm_set_pins_with_mask(pio0, pioSM, 1 << romCSPin, 1 << romCSPin);
+            sleep_us(1);
+            pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << romCSPin);
+
+            gpio_set_dir(0, false); // input
+            
+            // ignore first 4 bits
+            readBit();
+            readBit();
+            readBit();
+            readBit();
+
+            // read 64 bits
+            uint64_t val = 0;
+
+            for(int i = 0; i < 64; i++)
+                val = val << 1 | readBit();
+
+            *data++ = __builtin_bswap64(val);
+
+            gpio_set_dir(0, true); // output
+
+            addr += 8;
+        }
+
+        pio_sm_set_pins_with_mask(pio0, pioSM, 1 << romCSPin, 1 << romCSPin); // cs inactive
+
+        pio_gpio_init(pio0, 0);
+        pio_sm_set_enabled(pio0, pioSM, true);
+    }
+
     HeaderInfo readHeader()
     {
         HeaderInfo header = {};
@@ -253,7 +348,23 @@ namespace Cartridge
                 Cartridge::readROM(offset, buf, 5);
 
                 if(memcmp(buf, "EEPROM_V", 8) == 0)
-                    return SaveType::Unknown; // TODO (could be 512bytes or 8K)
+                {
+                    // if it's a 512 byte EEPROM and we address it as an 8K one, the 6 address bits it cares about will be 0
+                    // ... so it should always return the same value. (I think, don't have one to test)
+
+                    uint64_t val0, val;
+                    readEEPROMSave(0, &val0, 1, true);
+
+                    for(int eepromOff = 8; eepromOff < 512; eepromOff += 8)
+                    {
+                        readEEPROMSave(eepromOff, &val, 1, true);
+
+                        if(val != val0)
+                            return SaveType::EEPROM_8K;
+                    }
+
+                    return SaveType::EEPROM_512;
+                }
 
                 if(memcmp(buf, "SRAM_V", 6) == 0)
                     return SaveType::RAM;

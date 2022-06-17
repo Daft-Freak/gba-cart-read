@@ -31,6 +31,8 @@ namespace Cartridge
 
     void readFlashSave(uint32_t addr, uint8_t *data, int count);
 
+    void readEEPROMSave(uint16_t addr, uint64_t *data, int count, bool is8k);
+
     HeaderInfo readHeader();
 
     uint32_t getROMSize();

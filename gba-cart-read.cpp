@@ -16,7 +16,11 @@ static void readROM(uint32_t offset, uint32_t len, uint8_t *buf)
 
 static void readSave(uint32_t offset, uint32_t len, uint8_t *buf)
 {
-    if(saveType == Cartridge::SaveType::Flash_128K)
+    if(saveType == Cartridge::SaveType::EEPROM_512)
+        Cartridge::readEEPROMSave(offset, reinterpret_cast<uint64_t *>(buf), len / 8, false);
+    else if(saveType == Cartridge::SaveType::EEPROM_8K)
+        Cartridge::readEEPROMSave(offset, reinterpret_cast<uint64_t *>(buf), len / 8, true);
+    else if(saveType == Cartridge::SaveType::Flash_128K)
         Cartridge::readFlashSave(offset, buf, len);
     else
         Cartridge::readRAMSave(offset, buf, len); // this is okay for 64k flash
@@ -58,12 +62,21 @@ int main()
                     uint32_t saveSize = 0;
                     saveType = Cartridge::getSaveType(romSize);
 
-                    if(saveType == Cartridge::SaveType::RAM)
-                        saveSize = 32 * 1024;
-                    else if(saveType == Cartridge::SaveType::Flash_64K)
-                        saveSize = 64 * 1024;
-                    else if(saveType == Cartridge::SaveType::Flash_128K)
-                        saveSize = 128 * 1024;
+                    switch(saveType)
+                    {
+                        case Cartridge::SaveType::Unknown:
+                            break;
+                        case Cartridge::SaveType::EEPROM_512:
+                            saveSize = 512; break;
+                        case Cartridge::SaveType::EEPROM_8K:
+                            saveSize = 8 * 1024; break;
+                        case Cartridge::SaveType::RAM:
+                            saveSize = 32 * 1024; break;
+                        case Cartridge::SaveType::Flash_64K:
+                            saveSize = 64 * 1024; break;
+                        case Cartridge::SaveType::Flash_128K:
+                            saveSize = 128 * 1024; break;
+                    }
 
                     Filesystem::setTargetSize(romSize + saveSize);
 
