@@ -3,16 +3,11 @@
 
 ; sideset wr, rd, romCS, ramCS
 
-pull
-out x, 32 ; halfwords to read
-
-pull
-out pins, 16 ; address
-
-nop side 0b1011 ; rom cs active
+out x, 16 ; halfwords to read
+out pins, 16 side 0b1011; address, rom cs active
 
 ; set data pins to input
-; (there are 16 bits of 0s left in OSR)
+; (we pushed 0xFFFF0000 to get the 0s here...)
 out pindirs 16
 
 loop:
@@ -20,13 +15,6 @@ nop side 0b1001 ; cs/rd active
 in pins, 16 side 0b1011 ; read, rd inactive
 jmp x-- loop
 
-nop side 0b1111 ; rom cs inactive
-
-; get -1 in y
-set y, 0
-l:
-jmp y-- l
-
 ; set data pins to output
-mov osr, y
-out pindirs 16
+; (... and this uses the 0xFFFF)
+out pindirs 16 side 0b1111 ; also rom cs inactive

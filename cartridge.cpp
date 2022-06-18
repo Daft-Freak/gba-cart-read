@@ -45,7 +45,7 @@ namespace Cartridge
         pio_sm_config c = gba_cart_program_get_default_config(offset);
 
         sm_config_set_in_shift(&c, true, true, 16);
-        sm_config_set_out_shift(&c, true, false, 32);
+        sm_config_set_out_shift(&c, true, true, 32);
 
         sm_config_set_in_pins(&c, basePin);
         sm_config_set_out_pins(&c, basePin, dataPins);
@@ -84,8 +84,8 @@ namespace Cartridge
         pio0->fdebug |= 1 << (PIO_FDEBUG_TXSTALL_LSB + pioSM); // clear stall flag
 
         // count and low bits of address
-        pio_sm_put_blocking(pio0, pioSM, count - 1);
-        pio_sm_put_blocking(pio0, pioSM, (addr >> 1) & 0xFFFF);
+        pio_sm_put_blocking(pio0, pioSM, (count - 1) | (addr >> 1) << 16);
+        pio_sm_put_blocking(pio0, pioSM, 0xFFFF0000); // masks to set input/output
 
         while(count--)
             *data++ = pio_sm_get_blocking(pio0, pioSM) >> 16;
