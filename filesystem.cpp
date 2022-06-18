@@ -101,7 +101,8 @@ namespace Filesystem
         sectorsPerCluster = nextPowerOf2((paddedSectors + maxClusters - 1) / maxClusters);
 
         // round to cluster size
-        paddedSectors += sectorsPerCluster - (targetSectors % sectorsPerCluster);
+        if(targetSectors % sectorsPerCluster)
+            paddedSectors += sectorsPerCluster - (targetSectors % sectorsPerCluster);
 
         const int numClusters = paddedSectors / sectorsPerCluster;
 
