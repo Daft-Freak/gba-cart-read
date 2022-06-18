@@ -147,7 +147,7 @@ namespace Filesystem
         memset(rootEntries + 1, 0, sizeof(DirEntry) * (maxRootEntries - 1));
     }
 
-    void readSector(uint32_t sector, uint8_t *buf)
+    void read(uint32_t sector, uint32_t count, uint8_t *buf)
     {
         const char *label = "DAFTVOLUME "; // 11 chars
 
@@ -155,141 +155,149 @@ namespace Filesystem
         const uint32_t rootDirStart = numReservedSectors + sectorsPerFAT /* * numFATs*/;
         const uint32_t dataRegionStart = rootDirStart + maxRootEntries * 32 / sectorSize;
 
-        if(sector == 0) // VBR
+        for(; count; count--, sector++, buf += sectorSize)
         {
-            memset(buf, 0, sectorSize);
-            auto vbr = reinterpret_cast<VBR *>(buf);
-
-            vbr->jumpInstruction[0] = 0xEB;
-            vbr->jumpInstruction[1] = 0x3C;
-            vbr->jumpInstruction[2] = 0x90;
-
-            memcpy(vbr->oemName, "DAFTFAT ", 8);
-
-            vbr->bytesPerSector = sectorSize;
-            vbr->sectorsPerCluster = sectorsPerCluster;
-            vbr->numReservedSectors = numReservedSectors;
-            vbr->numFATs = 1;
-            vbr->maxRootEntries = maxRootEntries;
-
-            if(numSectors > 0xFFFF)
+            if(sector == 0) // VBR
             {
-                vbr->totalSectors = 0;
-                vbr->totalSectors32 = numSectors;
+                memset(buf, 0, sectorSize);
+                auto vbr = reinterpret_cast<VBR *>(buf);
+
+                vbr->jumpInstruction[0] = 0xEB;
+                vbr->jumpInstruction[1] = 0x3C;
+                vbr->jumpInstruction[2] = 0x90;
+
+                memcpy(vbr->oemName, "DAFTFAT ", 8);
+
+                vbr->bytesPerSector = sectorSize;
+                vbr->sectorsPerCluster = sectorsPerCluster;
+                vbr->numReservedSectors = numReservedSectors;
+                vbr->numFATs = 1;
+                vbr->maxRootEntries = maxRootEntries;
+
+                if(numSectors > 0xFFFF)
+                {
+                    vbr->totalSectors = 0;
+                    vbr->totalSectors32 = numSectors;
+                }
+                else
+                    vbr->totalSectors = uint16_t(numSectors);
+
+                vbr->mediaDescriptor = 0xF8; // fixed disk
+                vbr->sectorsPerFAT = sectorsPerFAT;
+
+                vbr->driveNumber = 0x80; // first fixed disk
+                vbr->extendedBootSig = 0x29;
+                vbr->volumeId = 0x12345678;
+                memcpy(vbr->volumeLabel, label, 11);
+                memcpy(vbr->fsType, "FAT12   ", 8);
             }
-            else
-                vbr->totalSectors = uint16_t(numSectors);
-
-            vbr->mediaDescriptor = 0xF8; // fixed disk
-            vbr->sectorsPerFAT = sectorsPerFAT;
-
-            vbr->driveNumber = 0x80; // first fixed disk
-            vbr->extendedBootSig = 0x29;
-            vbr->volumeId = 0x12345678;
-            memcpy(vbr->volumeLabel, label, 11);
-            memcpy(vbr->fsType, "FAT12   ", 8);
-        }
-        else if(sector >= numReservedSectors && sector < rootDirStart) // FAT
-        {
-            auto fatSector = sector - numReservedSectors;
-
-            auto startCluster = fatSector * sectorSize / 3 * 2;
-            auto endCluster = ((fatSector + 1) * sectorSize + 2) / 3 * 2; // rounded up
-
-            // reserved clusters
-            memset(buf, 0, sectorSize);
-            if(fatSector == 0)
+            else if(sector >= numReservedSectors && sector < rootDirStart) // FAT
             {
-                buf[0] = 0xF8;
-                buf[1] = 0xFF;
-                buf[2] = 0xFF;
-                startCluster = 2;
+                auto fatSector = sector - numReservedSectors;
+
+                auto startCluster = fatSector * sectorSize / 3 * 2;
+                auto endCluster = ((fatSector + 1) * sectorSize + 2) / 3 * 2; // rounded up
+
+                // reserved clusters
+                memset(buf, 0, sectorSize);
+                if(fatSector == 0)
+                {
+                    buf[0] = 0xF8;
+                    buf[1] = 0xFF;
+                    buf[2] = 0xFF;
+                    startCluster = 2;
+                }
+
+                // chains for files
+                uint32_t cluster = startCluster;
+
+                auto clusterSize = sectorsPerCluster * sectorSize;
+
+                while(cluster < endCluster)
+                {
+                    uint32_t fileStart = 0;
+                    uint32_t fileLen = 0;
+
+                    // find file
+                    // assuming the files are in order...
+                    for(auto &entry : rootEntries)
+                    {
+                        fileLen = (entry.fileSize + clusterSize - 1) / clusterSize;
+                        if(cluster < entry.startCluster + fileLen)
+                        {
+                            fileStart = entry.startCluster;
+                            break;
+                        }
+                    }
+
+                    // didin't find a file
+                    if(!fileStart)
+                        break;
+
+                    // clamping
+                    cluster = std::max(fileStart, cluster);
+                    auto fileEndCluster = std::min(fileStart + fileLen, endCluster);
+
+                    for(; cluster < fileEndCluster; cluster++)
+                    {
+                        int pairOff = cluster / 2 * 3 - fatSector * sectorSize;
+
+                        // next or EOF
+                        int val = cluster == fileStart + fileLen - 1 ? 0xFFF : cluster + 1;
+
+                        if(cluster & 1)
+                        {
+                            // high bits
+                            if(pairOff != -2) // low bits are in previous sector
+                                buf[pairOff + 1] = (buf[pairOff + 1] & 0xF) | (val & 0xF) << 4;
+
+                            if(pairOff != sectorSize - 2) // high bits are in next sector
+                                buf[pairOff + 2] = val >> 4;
+                        }
+                        else
+                        {
+                            // low bits
+                            if(pairOff != -1) // low bits are in previous sector
+                                buf[pairOff + 0] = val & 0xFF;
+
+                            if(pairOff != sectorSize - 1) // high bits are in next sector
+                                buf[pairOff + 1] = (buf[pairOff + 1] & 0xF0) | val >> 8;
+                        }
+                    }
+                }
             }
-
-            // chains for files
-            uint32_t cluster = startCluster;
-
-            auto clusterSize = sectorsPerCluster * sectorSize;
-
-            while(cluster < endCluster)
+            else if(sector >= rootDirStart && sector < dataRegionStart) // root dir
             {
-                uint32_t fileStart = 0;
-                uint32_t fileLen = 0;
+                // we're assuming that there is exactly one sector of dir entries
+                assert(maxRootEntries * sizeof(DirEntry) == sectorSize);
+
+                // make sure the label is there
+                memcpy(rootEntries, label, 11); // name+ext of first entry
+                rootEntries[0].attributes = 0x8; // label
+
+                memcpy(buf, rootEntries, sectorSize);
+            }
+            else if(sector >= dataRegionStart) // data region
+            {
+                uint32_t off = (sector - dataRegionStart) * sectorSize;
 
                 // find file
-                // assuming the files are in order...
+                int i = 0;
                 for(auto &entry : rootEntries)
                 {
-                    fileLen = (entry.fileSize + clusterSize - 1) / clusterSize;
-                    if(cluster < entry.startCluster + fileLen)
+                    uint32_t startByte = (entry.startCluster - 2) * sectorsPerCluster * sectorSize;
+                    if(off >= startByte && off - startByte < entry.fileSize)
                     {
-                        fileStart = entry.startCluster;
+                        // to end of file or remaining sectors to read
+                        auto len = std::min(entry.fileSize - (off - startByte), count * sectorSize);
+
+                        fileReadFuncs[i](off - startByte, len, buf);
+
+                        count -= len / sectorSize - 1;
                         break;
                     }
+                    i++;
                 }
-
-                // didin't find a file
-                if(!fileStart)
-                    break;
-
-                // clamping
-                cluster = std::max(fileStart, cluster);
-                auto fileEndCluster = std::min(fileStart + fileLen, endCluster);
-
-                for(; cluster < fileEndCluster; cluster++)
-                {
-                    int pairOff = cluster / 2 * 3 - fatSector * sectorSize;
-
-                    // next or EOF
-                    int val = cluster == fileStart + fileLen - 1 ? 0xFFF : cluster + 1;
-
-                    if(cluster & 1)
-                    {
-                        // high bits
-                        if(pairOff != -2) // low bits are in previous sector
-                            buf[pairOff + 1] = (buf[pairOff + 1] & 0xF) | (val & 0xF) << 4;
-
-                        if(pairOff != sectorSize - 2) // high bits are in next sector
-                            buf[pairOff + 2] = val >> 4;
-                    }
-                    else
-                    {
-                        // low bits
-                        if(pairOff != -1) // low bits are in previous sector
-                            buf[pairOff + 0] = val & 0xFF;
-
-                        if(pairOff != sectorSize - 1) // high bits are in next sector
-                            buf[pairOff + 1] = (buf[pairOff + 1] & 0xF0) | val >> 8;
-                    }
-                }
-            }
-        }
-        else if(sector >= rootDirStart && sector < dataRegionStart) // root dir
-        {
-            // we're assuming that there is exactly one sector of dir entries
-            assert(maxRootEntries * sizeof(DirEntry) == sectorSize);
-
-            // make sure the label is there
-            memcpy(rootEntries, label, 11); // name+ext of first entry
-            rootEntries[0].attributes = 0x8; // label
-
-            memcpy(buf, rootEntries, sectorSize);
-        }
-        else if(sector >= dataRegionStart) // data region
-        {
-            uint32_t off = (sector - dataRegionStart) * sectorSize;
-
-            // find file
-            int i = 0;
-            for(auto &entry : rootEntries)
-            {
-                uint32_t startByte = (entry.startCluster - 2) * sectorsPerCluster * sectorSize;
-                if(off >= startByte && off - startByte < entry.fileSize)
-                {
-                    fileReadFuncs[i](off - startByte, sectorSize, buf);
-                    break;
-                }
-                i++;
             }
         }
     }

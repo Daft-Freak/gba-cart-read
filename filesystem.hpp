@@ -12,6 +12,5 @@ namespace Filesystem
     void addFile(uint32_t offset, uint32_t size, const char *shortName, const char *shortExt, ReadFunc readFn);
     void resetFiles();
 
-    // TODO: multiple sectors
-    void readSector(uint32_t sector, uint8_t *buf);
+    void read(uint32_t sector, uint32_t count, uint8_t *buf);
 }
