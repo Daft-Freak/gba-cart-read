@@ -28,7 +28,7 @@ namespace Cartridge
         int addressPins = 24;
         int dataPins = 16;
 
-        uint32_t sideMask = 1 << wrPin | 1 << rdPin | 1 << romCSPin | 1 << ramCSPin;
+        uint32_t sideMask = 1 << wrPin | 1 << rdPin | 1 << romCSPin ;
         uint32_t pinMask = sideMask | ((1 << dataPins) - 1);
 
         pio_sm_set_pins_with_mask(pio, sm, sideMask, pinMask); // set all control pins inactive
@@ -40,7 +40,6 @@ namespace Cartridge
         pio_gpio_init(pio, wrPin);
         pio_gpio_init(pio, rdPin);
         pio_gpio_init(pio, romCSPin);
-        pio_gpio_init(pio, ramCSPin);
 
         pio_sm_config c = gba_cart_program_get_default_config(offset);
 
@@ -69,6 +68,11 @@ namespace Cartridge
         auto mask = 0xFF << 16;
         gpio_init_mask(mask);
         gpio_set_dir_out_masked(mask);
+
+        // and RAM CS
+        gpio_init(ramCSPin);
+        gpio_set_dir(ramCSPin, true);
+        gpio_put(ramCSPin, true);
     }
 
     // read func
@@ -104,7 +108,7 @@ namespace Cartridge
         // manually set pins
         auto addressMask = (1 << 16) - 1;
 
-        pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << ramCSPin); // cs active
+        gpio_put(ramCSPin, false); // cs active
         sleep_us(1);
         
         // the high 8 bits from the ROM addr are the data pins here
@@ -123,7 +127,7 @@ namespace Cartridge
             addr++;
         }
 
-        pio_sm_set_pins_with_mask(pio0, pioSM, 1 << ramCSPin, 1 << ramCSPin); // cs inactive
+        gpio_put(ramCSPin, true); // cs inactive
 
         gpio_set_dir_out_masked(0xFF << 16);
     }
@@ -136,7 +140,7 @@ namespace Cartridge
         // manually set pins
         auto addressMask = (1 << 16) - 1;
 
-        pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << ramCSPin); // cs active
+        gpio_put(ramCSPin, false); // cs active
         sleep_us(1);
         
         while(count--)
@@ -151,7 +155,7 @@ namespace Cartridge
             addr++;
         }
 
-        pio_sm_set_pins_with_mask(pio0, pioSM, 1 << ramCSPin, 1 << ramCSPin); // cs inactive
+        gpio_put(ramCSPin, true); // cs inactive
     }
 
     // only needed for 128k saves

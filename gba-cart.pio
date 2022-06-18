@@ -1,20 +1,20 @@
 .program gba_cart
-.side_set 4 opt
+.side_set 3 opt
 
-; sideset wr, rd, romCS, ramCS
+; sideset wr, rd, romCS
 
 out x, 16 ; halfwords to read
-out pins, 16 side 0b1011; address, rom cs active
+out pins, 16 side 0b011; address, rom cs active
 
 ; set data pins to input
 ; (we pushed 0xFFFF0000 to get the 0s here...)
 out pindirs 16
 
 loop:
-nop side 0b1001 ; cs/rd active
-in pins, 16 side 0b1011 ; read, rd inactive
+nop side 0b001 ; cs/rd active
+in pins, 16 side 0b011 ; read, rd inactive
 jmp x-- loop
 
 ; set data pins to output
 ; (... and this uses the 0xFFFF)
-out pindirs 16 side 0b1111 ; also rom cs inactive
+out pindirs 16 side 0b111 ; also rom cs inactive
