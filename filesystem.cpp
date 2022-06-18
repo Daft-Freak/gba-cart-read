@@ -74,6 +74,11 @@ namespace Filesystem
     static int sectorsPerCluster = 1, sectorsPerFAT = 1;
     static uint32_t numSectors = 0;
 
+    // offsets
+    static uint32_t rootDirStart = 0;
+    static uint32_t dataRegionStart = 0;
+
+    // root directory/files
     static DirEntry rootEntries[maxRootEntries]{};
     static ReadFunc fileReadFuncs[maxRootEntries]{};
     static int curDirEntry = 1; // 0 is the label
@@ -110,6 +115,9 @@ namespace Filesystem
         sectorsPerFAT = (((numClusters + 3) / 2 * 3) + (sectorSize - 1)) / sectorSize;
 
         numSectors = paddedSectors - (largestFAT - sectorsPerFAT);
+
+        rootDirStart = numReservedSectors + sectorsPerFAT /* * numFATs*/;
+        dataRegionStart = rootDirStart + maxRootEntries * 32 / sectorSize;
     }
 
     uint32_t getNumSectors()
@@ -150,10 +158,6 @@ namespace Filesystem
     void read(uint32_t sector, uint32_t count, uint8_t *buf)
     {
         const char *label = "DAFTVOLUME "; // 11 chars
-
-        // offsets
-        const uint32_t rootDirStart = numReservedSectors + sectorsPerFAT /* * numFATs*/;
-        const uint32_t dataRegionStart = rootDirStart + maxRootEntries * 32 / sectorSize;
 
         for(; count; count--, sector++, buf += sectorSize)
         {
