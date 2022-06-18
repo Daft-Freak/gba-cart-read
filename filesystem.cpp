@@ -277,13 +277,13 @@ namespace Filesystem
         }
         else if(sector >= dataRegionStart) // data region
         {
-            int off = (sector - dataRegionStart) * sectorSize;
+            uint32_t off = (sector - dataRegionStart) * sectorSize;
 
             // find file
             int i = 0;
             for(auto &entry : rootEntries)
             {
-                auto startByte = (entry.startCluster - 2) * sectorsPerCluster * sectorSize;
+                uint32_t startByte = (entry.startCluster - 2) * sectorsPerCluster * sectorSize;
                 if(off >= startByte && off - startByte < entry.fileSize)
                 {
                     fileReadFuncs[i](off - startByte, sectorSize, buf);
