@@ -11,7 +11,7 @@ out pins, 16 side 0b011; address, rom cs active
 out pindirs 16
 
 loop:
-nop side 0b001 ; cs/rd active
+nop side 0b001 [1] ; cs/rd active
 in pins, 16 side 0b011 ; read, rd inactive
 jmp x-- loop
 

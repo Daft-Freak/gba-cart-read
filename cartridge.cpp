@@ -52,7 +52,7 @@ namespace Cartridge
 
         // default wait states for cart ROM are 4/2, most games use 3/1
         // ... so we can get a few MHz
-        sm_config_set_clkdiv_int_frac(&c, 15, 0);
+        sm_config_set_clkdiv_int_frac(&c, 35, 0);
 
         pio_sm_init(pio, sm, offset, &c);
     }
