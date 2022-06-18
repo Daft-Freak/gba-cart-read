@@ -75,7 +75,7 @@ namespace Cartridge
     void readROM(uint32_t addr, uint16_t *data, int count)
     {
         assert((addr & 1) == 0);
-        assert((addr & 0xFFFF) + count <= 0x10000);
+        assert(((addr >> 1) & 0xFFFF) + count <= 0x10000);
 
         // write high bits of address
         gpio_put_masked(0xFF << 16, addr >> 1);
