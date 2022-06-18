@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "pico/stdlib.h"
 #include "pico/time.h"
 #include "tusb.h"
@@ -11,7 +13,14 @@ static Cartridge::SaveType saveType = Cartridge::SaveType::Unknown;
 
 static void readROM(uint32_t offset, uint32_t len, uint8_t *buf)
 {
-    Cartridge::readROM(offset, reinterpret_cast<uint16_t *>(buf), len / 2);
+    // might have to split this to not wrap the address
+    // (assuming nothing ever tries to read > 64k halfwords)
+    auto maxLen = 0x20000 - (offset & 0x1FFFF);
+
+    Cartridge::readROM(offset, reinterpret_cast<uint16_t *>(buf), std::min(len, maxLen) / 2);
+
+    if(maxLen < len)
+        Cartridge::readROM(offset + maxLen, reinterpret_cast<uint16_t *>(buf + maxLen), (len - maxLen) / 2);
 }
 
 static void readSave(uint32_t offset, uint32_t len, uint8_t *buf)
