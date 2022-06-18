@@ -56,7 +56,6 @@ namespace Cartridge
         sm_config_set_clkdiv_int_frac(&c, 15, 0);
 
         pio_sm_init(pio, sm, offset, &c);
-        pio_sm_set_enabled(pio, sm, true);
     }
 
     void initIO()
@@ -81,12 +80,20 @@ namespace Cartridge
         // write high bits of address
         gpio_put_masked(0xFF << 16, addr >> 1);
 
+        pio_sm_set_enabled(pio0, pioSM, true);
+        pio0->fdebug |= 1 << (PIO_FDEBUG_TXSTALL_LSB + pioSM); // clear stall flag
+
         // count and low bits of address
         pio_sm_put_blocking(pio0, pioSM, count - 1);
         pio_sm_put_blocking(pio0, pioSM, (addr >> 1) & 0xFFFF);
 
         while(count--)
             *data++ = pio_sm_get_blocking(pio0, pioSM) >> 16;
+
+        // wait for stall
+        while(!(pio0->fdebug & (1 << (PIO_FDEBUG_TXSTALL_LSB + pioSM))));
+
+        pio_sm_set_enabled(pio0, pioSM, false);
     }
 
     void readRAMSave(uint16_t addr, uint8_t *data, int count)
@@ -94,9 +101,7 @@ namespace Cartridge
         // should also be good for 64k flash
         assert(addr + count <= 0x10000);
 
-        // disable PIO, and manually set pins
-        pio_sm_set_enabled(pio0, pioSM, false);
-
+        // manually set pins
         auto addressMask = (1 << 16) - 1;
 
         pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << ramCSPin); // cs active
@@ -121,8 +126,6 @@ namespace Cartridge
         pio_sm_set_pins_with_mask(pio0, pioSM, 1 << ramCSPin, 1 << ramCSPin); // cs inactive
 
         gpio_set_dir_out_masked(0xFF << 16);
-
-        pio_sm_set_enabled(pio0, pioSM, true);
     }
 
     void writeRAMSave(uint16_t addr, const uint8_t *data, int count)
@@ -130,9 +133,7 @@ namespace Cartridge
         // also used for flash commands
         assert(addr + count <= 0x8000);
 
-        // disable PIO, and manually set pins
-        pio_sm_set_enabled(pio0, pioSM, false);
-
+        // manually set pins
         auto addressMask = (1 << 16) - 1;
 
         pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << ramCSPin); // cs active
@@ -151,8 +152,6 @@ namespace Cartridge
         }
 
         pio_sm_set_pins_with_mask(pio0, pioSM, 1 << ramCSPin, 1 << ramCSPin); // cs inactive
-
-        pio_sm_set_enabled(pio0, pioSM, true);
     }
 
     // only needed for 128k saves
@@ -187,10 +186,8 @@ namespace Cartridge
         assert((addr & 7) == 0);
         assert((addr / 8) + count <= (is8k ? 0x400 : 0x40));
 
-        // disable PIO, and manually set pins
+        // manually set pins
         // (this could probably use PIO more)
-        pio_sm_set_enabled(pio0, pioSM, false);
-
         auto addressMask = (1 << 16) - 1;
 
         // write address (0x1FFFF00)
@@ -274,7 +271,6 @@ namespace Cartridge
         pio_sm_set_pins_with_mask(pio0, pioSM, 1 << romCSPin, 1 << romCSPin); // cs inactive
 
         pio_gpio_init(pio0, 0);
-        pio_sm_set_enabled(pio0, pioSM, true);
     }
 
     HeaderInfo readHeader()
