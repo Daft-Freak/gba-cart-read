@@ -42,6 +42,7 @@ target_link_libraries(gba-cart-read
 
 # Add any user requested libraries
 target_link_libraries(gba-cart-read
+    hardware_dma
     hardware_pio
 )
 

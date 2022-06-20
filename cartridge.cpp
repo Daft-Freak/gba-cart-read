@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "pico/stdlib.h"
+#include "hardware/dma.h"
 #include "hardware/pio.h"
 
 #include "cartridge.hpp"
@@ -18,7 +19,9 @@ static const int ramCSPin = 27;
 
 namespace Cartridge
 {
-    int pioSM = -1;
+    static int pioSM = -1;
+
+    static int dmaChannel;
 
     static int curFlashBank = -1;
 
@@ -73,6 +76,18 @@ namespace Cartridge
         gpio_init(ramCSPin);
         gpio_set_dir(ramCSPin, true);
         gpio_put(ramCSPin, true);
+
+        // DMA
+        dmaChannel = dma_claim_unused_channel(true);
+
+        auto config = dma_channel_get_default_config(dmaChannel);
+        channel_config_set_transfer_data_size(&config, DMA_SIZE_16);
+        channel_config_set_dreq(&config, pio_get_dreq(pio0, pioSM, false));
+        channel_config_set_read_increment(&config, false);
+        channel_config_set_write_increment(&config, true);
+
+        dma_channel_set_config(dmaChannel, &config, false);
+        dma_channel_set_read_addr(dmaChannel, &pio0->rxf[pioSM], false);
     }
 
     // read func
@@ -88,11 +103,14 @@ namespace Cartridge
         pio_sm_put_blocking(pio0, pioSM, (count - 1) << 16 | ((addr >> 1) & 0xFFFF));
         pio_sm_put_blocking(pio0, pioSM, 0x0000FFFF); // masks to set input/output
 
+        // setup DMA for read
+        dma_channel_set_trans_count(dmaChannel, count, false);
+        dma_channel_set_write_addr(dmaChannel, data, true);
+
         pio0->fdebug |= 1 << (PIO_FDEBUG_TXSTALL_LSB + pioSM); // clear stall flag
         pio_sm_set_enabled(pio0, pioSM, true);
 
-        while(count--)
-            *data++ = pio_sm_get_blocking(pio0, pioSM);
+        while(dma_channel_is_busy(dmaChannel));// wait for DMA
 
         // wait for stall
         while(!(pio0->fdebug & (1 << (PIO_FDEBUG_TXSTALL_LSB + pioSM))));
