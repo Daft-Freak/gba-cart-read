@@ -1,4 +1,4 @@
-.program gba_cart
+.program gba_rom_read
 .side_set 3 opt
 
 ; sideset wr, rd, romCS

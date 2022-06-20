@@ -41,7 +41,7 @@ namespace Cartridge
         pio_gpio_init(pio, rdPin);
         pio_gpio_init(pio, romCSPin);
 
-        pio_sm_config c = gba_cart_program_get_default_config(offset);
+        pio_sm_config c = gba_rom_read_program_get_default_config(offset);
 
         sm_config_set_in_shift(&c, true, true, 16);
         sm_config_set_out_shift(&c, true, true, 32);
@@ -60,7 +60,7 @@ namespace Cartridge
     void initIO()
     {
         // init PIO
-        uint offset = pio_add_program(pio0, &gba_cart_program);
+        uint offset = pio_add_program(pio0, &gba_rom_read_program);
         pioSM = pio_claim_unused_sm(pio0, true);
         initPIO(pio0, pioSM, offset);
 
