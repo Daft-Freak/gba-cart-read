@@ -84,12 +84,12 @@ namespace Cartridge
         // write high bits of address
         gpio_put_masked(0xFF << 16, addr >> 1);
 
-        pio_sm_set_enabled(pio0, pioSM, true);
-        pio0->fdebug |= 1 << (PIO_FDEBUG_TXSTALL_LSB + pioSM); // clear stall flag
-
         // count and low bits of address
         pio_sm_put_blocking(pio0, pioSM, (count - 1) | (addr >> 1) << 16);
         pio_sm_put_blocking(pio0, pioSM, 0xFFFF0000); // masks to set input/output
+
+        pio0->fdebug |= 1 << (PIO_FDEBUG_TXSTALL_LSB + pioSM); // clear stall flag
+        pio_sm_set_enabled(pio0, pioSM, true);
 
         while(count--)
             *data++ = pio_sm_get_blocking(pio0, pioSM) >> 16;
