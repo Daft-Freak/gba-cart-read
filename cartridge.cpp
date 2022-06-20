@@ -20,6 +20,7 @@ static const int ramCSPin = 27;
 namespace Cartridge
 {
     static int pioSM = -1;
+    static unsigned int romProgramOffset, eepromProgramOffset;
 
     static int dmaChannel;
 
@@ -55,6 +56,7 @@ namespace Cartridge
 
         // default wait states for cart ROM are 4/2, most games use 3/1
         // ... so we can get a few MHz
+        // but EEPROM uses 8/8, so slow down for that
         sm_config_set_clkdiv_int_frac(&c, 35, 0);
 
         pio_sm_init(pio, sm, offset, &c);
@@ -63,9 +65,10 @@ namespace Cartridge
     void initIO()
     {
         // init PIO
-        uint offset = pio_add_program(pio0, &gba_rom_read_program);
+        romProgramOffset = pio_add_program(pio0, &gba_rom_read_program);
+        eepromProgramOffset = pio_add_program(pio0, &gba_eeprom_read_program);
         pioSM = pio_claim_unused_sm(pio0, true);
-        initPIO(pio0, pioSM, offset);
+        initPIO(pio0, pioSM, romProgramOffset);
 
         // init high address bits (PIO doesn't control these)
         auto mask = 0xFF << 16;
@@ -98,6 +101,11 @@ namespace Cartridge
 
         // write high bits of address
         gpio_put_masked(0xFF << 16, addr >> 1);
+
+        // switch program
+        auto start = romProgramOffset + gba_rom_read_wrap_target;
+        pio_sm_set_wrap(pio0, pioSM, start, romProgramOffset + gba_rom_read_wrap);
+        pio_sm_exec(pio0, pioSM, pio_encode_jmp(start));
 
         // count and low bits of address
         pio_sm_put_blocking(pio0, pioSM, (count - 1) << 16 | ((addr >> 1) & 0xFFFF));
@@ -208,91 +216,53 @@ namespace Cartridge
         assert((addr & 7) == 0);
         assert((addr / 8) + count <= (is8k ? 0x400 : 0x40));
 
-        // manually set pins
-        // (this could probably use PIO more)
-        auto addressMask = (1 << 16) - 1;
+        uint32_t romAddr = 0x1FFFF00;
 
-        // write address (0x1FFFF00)
-        gpio_put_masked(0xFF << 16, 0xFF << 16);
-        pio_sm_set_pins_with_mask(pio0, pioSM, 0xFF80, addressMask);
+        // write high bits of address (0x1FFFF00)
+        gpio_put_masked(0xFF << 16, romAddr >> 1);
 
-        pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << romCSPin); // cs active
-        
-        sleep_us(1);
+        // switch program
+        auto start = eepromProgramOffset + gba_eeprom_read_wrap_target;
+        pio_sm_set_wrap(pio0, pioSM, start, eepromProgramOffset + gba_eeprom_read_wrap);
+        pio_sm_exec(pio0, pioSM, pio_encode_jmp(start));
 
-        // borrow the lowest bit of data
-        gpio_init(0);
-        gpio_set_dir(0, true);
+        // counts and low bits of (rom) address
+        const int addrBits = is8k ? 14 : 6;
+        const int dataBits = 64;
+        uint32_t addrData = (addrBits + 2) << 24 /*extra 3 bits*/ | (dataBits - 1) << 16 | ((romAddr >> 1) & 0xFFFF);
 
-        // writing a stream of bits to the ROM area
-        auto writeBit = [](int b)
+        pio_sm_put_blocking(pio0, pioSM, addrData);
+        // the EEPROM address
+        pio_sm_put_blocking(pio0, pioSM, 0xC0000000 /*11 prefix*/ | (addr / 8) << (is8k ? 16 : 24)); // either 9 or 17 bits total...
+        // masks to set input/output
+        pio_sm_put_blocking(pio0, pioSM, 0x0000FFFF);
+
+        // setup DMA for read
+        dma_channel_set_trans_count(dmaChannel, count * 4 /*64 bit*/, false);
+        dma_channel_set_write_addr(dmaChannel, data, true);
+
+        pio0->fdebug |= 1 << (PIO_FDEBUG_TXSTALL_LSB + pioSM); // clear stall flag
+        pio_sm_set_enabled(pio0, pioSM, true);
+
+        // keep pushing reads
+        for(int i = 1; i < count; i++)
         {
-            gpio_put(0, b);
-            pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << wrPin); // WR active
-            sleep_us(1);
-            pio_sm_set_pins_with_mask(pio0, pioSM, 1 << wrPin, 1 << wrPin);
-            sleep_us(1);
-        };
-
-        auto readBit = []()
-        {
-            pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << rdPin); // RD active
-            sleep_us(1);
-            int ret = gpio_get(0);
-            pio_sm_set_pins_with_mask(pio0, pioSM, 1 << rdPin, 1 << rdPin);
-            sleep_us(1);
-
-            return ret;
-        };
-
-        while(count--)
-        {
-            writeBit(1);
-            writeBit(1);
-
-            int addrBits = is8k ? 14 : 6;
-            uint16_t shiftedAddr = addr / 8;
-            if(!is8k)
-                shiftedAddr <<= 8;
-
-            // write address, MSB first
-            while(addrBits--)
-            {
-                writeBit((shiftedAddr >> 13) & 1);
-                shiftedAddr <<= 1;
-            }
-
-            writeBit(0);
-
-            // toggle cs
-            pio_sm_set_pins_with_mask(pio0, pioSM, 1 << romCSPin, 1 << romCSPin);
-            sleep_us(1);
-            pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << romCSPin);
-
-            gpio_set_dir(0, false); // input
-            
-            // ignore first 4 bits
-            readBit();
-            readBit();
-            readBit();
-            readBit();
-
-            // read 64 bits
-            uint64_t val = 0;
-
-            for(int i = 0; i < 64; i++)
-                val = val << 1 | readBit();
-
-            *data++ = __builtin_bswap64(val);
-
-            gpio_set_dir(0, true); // output
-
             addr += 8;
+            pio_sm_put_blocking(pio0, pioSM, addrData);
+            pio_sm_put_blocking(pio0, pioSM, 0xC0000000 | (addr / 8) << (is8k ? 16 : 24));
+            pio_sm_put_blocking(pio0, pioSM, 0x0000FFFF);
         }
 
-        pio_sm_set_pins_with_mask(pio0, pioSM, 1 << romCSPin, 1 << romCSPin); // cs inactive
+        while(dma_channel_is_busy(dmaChannel)); // wait for DMA
 
-        pio_gpio_init(pio0, 0);
+        // swap bytes in each halfword
+        for(int i = 0; i < count; i++)
+            data[i] = (data[i] & 0x00FF00FF00FF00FFull) << 8 | (data[i] & 0xFF00FF00FF00FF00ull) >> 8;
+
+        // wait for stall
+        while(!(pio0->fdebug & (1 << (PIO_FDEBUG_TXSTALL_LSB + pioSM))));
+
+        pio_sm_set_enabled(pio0, pioSM, false);
     }
 
     HeaderInfo readHeader()

@@ -18,3 +18,38 @@ jmp x-- loop
 ; set data pins to output
 ; (... and this uses the 0xFFFF)
 out pindirs 16 side 0b111 ; also rom cs inactive
+
+; EEPROM reads
+.program gba_eeprom_read
+.side_set 3 opt
+
+out x, 8 ; address width (includes 11 prefix) 0?
+out y, 8 ; data width
+out pins, 16 side 0b011; address, rom cs active (addr will always be >= 0xFF80)
+
+cmd_loop:
+out pins 1 side 0b010 [1] ; output bit, cs/wr avtive
+jmp x-- cmd_loop side 0b011 [1] ; wr inactive
+
+out null, 24 side 0b111 [1]; discard padding (15-23 bits), cs inactive
+
+; set data pins to input
+; (we pushed 0xFFFF0000 to get the 0s here...)
+out pindirs 16 side 0b011 ; cs active
+
+; ignore 4 bits
+set x 3
+ignore_loop:
+nop side 0b001 [1] ; cs/rd active
+nop side 0b011 ; rd inactive
+jmp x-- ignore_loop
+
+; read 64 bits
+loop:
+nop side 0b001 [1] ; cs/rd active
+in pins, 1 side 0b011 ; read, rd inactive
+jmp y-- loop
+
+; set data pins to output
+; (... and this uses the 0xFFFF)
+out pindirs 16 side 0b111 ; also rom cs inactive
