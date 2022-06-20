@@ -43,8 +43,8 @@ namespace Cartridge
 
         pio_sm_config c = gba_rom_read_program_get_default_config(offset);
 
-        sm_config_set_in_shift(&c, true, true, 16);
-        sm_config_set_out_shift(&c, true, true, 32);
+        sm_config_set_in_shift(&c, false, true, 16);
+        sm_config_set_out_shift(&c, false, true, 32);
 
         sm_config_set_in_pins(&c, basePin);
         sm_config_set_out_pins(&c, basePin, dataPins);
@@ -85,14 +85,14 @@ namespace Cartridge
         gpio_put_masked(0xFF << 16, addr >> 1);
 
         // count and low bits of address
-        pio_sm_put_blocking(pio0, pioSM, (count - 1) | (addr >> 1) << 16);
-        pio_sm_put_blocking(pio0, pioSM, 0xFFFF0000); // masks to set input/output
+        pio_sm_put_blocking(pio0, pioSM, (count - 1) << 16 | ((addr >> 1) & 0xFFFF));
+        pio_sm_put_blocking(pio0, pioSM, 0x0000FFFF); // masks to set input/output
 
         pio0->fdebug |= 1 << (PIO_FDEBUG_TXSTALL_LSB + pioSM); // clear stall flag
         pio_sm_set_enabled(pio0, pioSM, true);
 
         while(count--)
-            *data++ = pio_sm_get_blocking(pio0, pioSM) >> 16;
+            *data++ = pio_sm_get_blocking(pio0, pioSM);
 
         // wait for stall
         while(!(pio0->fdebug & (1 << (PIO_FDEBUG_TXSTALL_LSB + pioSM))));
