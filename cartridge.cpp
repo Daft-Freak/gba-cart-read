@@ -133,8 +133,6 @@ namespace Cartridge
         assert(addr + count <= 0x10000);
 
         // manually set pins
-        auto addressMask = (1 << 16) - 1;
-
         gpio_put(ramCSPin, false); // cs active
         sleep_us(1);
         
@@ -143,13 +141,14 @@ namespace Cartridge
 
         while(count--)
         {
-            pio_sm_set_pins_with_mask(pio0, pioSM, addr, addressMask); // write address
-            pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << rdPin); // rd
+            pio_sm_put_blocking(pio0, pioSM, addr << 16);
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, 0b101)); // out address, rd active
+            
             sleep_us(1);
 
             *data++ = gpio_get_all() >> 16;
 
-            pio_sm_set_pins_with_mask(pio0, pioSM, 1 << rdPin, 1 << rdPin);
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_null, 16) | pio_encode_sideset_opt(3, 0b111)); // discard remaining bits, rd inactive
             sleep_us(1);
             addr++;
         }
@@ -165,19 +164,18 @@ namespace Cartridge
         assert(addr + count <= 0x8000);
 
         // manually set pins
-        auto addressMask = (1 << 16) - 1;
-
         gpio_put(ramCSPin, false); // cs active
         sleep_us(1);
         
         while(count--)
         {
-            pio_sm_set_pins_with_mask(pio0, pioSM, addr, addressMask); // write address
             gpio_put_masked(0xFF << 16, *data++ << 16); // write data
 
-            pio_sm_set_pins_with_mask(pio0, pioSM, 0, 1 << wrPin); // wr
+            pio_sm_put_blocking(pio0, pioSM, addr << 16);
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, 0b110)); // out address, wr active
+
             sleep_us(1);
-            pio_sm_set_pins_with_mask(pio0, pioSM, 1 << wrPin, 1 << wrPin);
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_null, 16) | pio_encode_sideset_opt(3, 0b111)); // discard remaining bits, wr inactive
 
             addr++;
         }
