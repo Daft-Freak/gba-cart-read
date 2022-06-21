@@ -112,6 +112,7 @@ namespace Cartridge
         pio_sm_put_blocking(pio0, pioSM, 0x0000FFFF); // masks to set input/output
 
         // setup DMA for read
+        dma_hw->ch[dmaChannel].al1_ctrl &= ~DMA_CH0_CTRL_TRIG_BSWAP_BITS; // no swapping
         dma_channel_set_trans_count(dmaChannel, count, false);
         dma_channel_set_write_addr(dmaChannel, data, true);
 
@@ -238,6 +239,7 @@ namespace Cartridge
         pio_sm_put_blocking(pio0, pioSM, 0x0000FFFF);
 
         // setup DMA for read
+        dma_hw->ch[dmaChannel].al1_ctrl |= DMA_CH0_CTRL_TRIG_BSWAP_BITS; // swap bytes
         dma_channel_set_trans_count(dmaChannel, count * 4 /*64 bit*/, false);
         dma_channel_set_write_addr(dmaChannel, data, true);
 
@@ -254,10 +256,6 @@ namespace Cartridge
         }
 
         while(dma_channel_is_busy(dmaChannel)); // wait for DMA
-
-        // swap bytes in each halfword
-        for(int i = 0; i < count; i++)
-            data[i] = (data[i] & 0x00FF00FF00FF00FFull) << 8 | (data[i] & 0xFF00FF00FF00FF00ull) >> 8;
 
         // wait for stall
         while(!(pio0->fdebug & (1 << (PIO_FDEBUG_TXSTALL_LSB + pioSM))));
