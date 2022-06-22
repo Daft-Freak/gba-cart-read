@@ -11,6 +11,11 @@ static char curGameCode[4]{0};
 
 static Cartridge::SaveType saveType = Cartridge::SaveType::Unknown;
 
+static void readDMGROM(uint32_t offset, uint32_t len, uint8_t *buf)
+{
+    return Cartridge::readDMG(offset, buf, len);
+}
+
 static void readROM(uint32_t offset, uint32_t len, uint8_t *buf)
 {
     // might have to split this to not wrap the address
@@ -59,6 +64,8 @@ int main()
         {
             auto header = Cartridge::readHeader();
 
+            uint32_t romSize = 0;
+
             if(header.checksumValid)
             {
                 // valid header, check if cart is changing
@@ -67,7 +74,7 @@ int main()
                     // update cart size
                     memcpy(curGameCode, header.gameCode, 4);
         
-                    auto romSize = Cartridge::getROMSize();
+                    romSize = Cartridge::getROMSize();
                     uint32_t saveSize = 0;
                     saveType = Cartridge::getSaveType(romSize);
 
@@ -96,7 +103,27 @@ int main()
                         Filesystem::addFile(romSize, saveSize, header.gameCode, "SAV", readSave);
                 }
             }
-            else
+            else if(false) // FIXME: we don't have cart detection... or voltage switching
+            {
+                uint8_t dmgHeader[0x50];
+                Cartridge::readDMG(0x100, dmgHeader, 0x50);
+
+                // only the first 16 bytes
+                static const uint8_t logoData[]{0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B, 0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D};
+
+                if(memcmp(dmgHeader + 4, logoData, sizeof(logoData)) == 0 && !curGameCode[0])
+                {
+                    romSize = 32 * 1024;
+                    Filesystem::setTargetSize(romSize);
+
+                    Filesystem::resetFiles();
+                    Filesystem::addFile(0, romSize, "ROM", "GB", readDMGROM);
+
+                    curGameCode[0] = 1;
+                }
+            }
+            
+            if(!romSize)
             {
                 memset(curGameCode, 0, 4);
                 Filesystem::setTargetSize(0);

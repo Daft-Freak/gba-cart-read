@@ -33,6 +33,9 @@ namespace Cartridge
 
     void readEEPROMSave(uint16_t addr, uint64_t *data, int count, bool is8k);
 
+    // raw access to GB cart
+    void readDMG(uint16_t addr, uint8_t *data, int count);
+
     HeaderInfo readHeader();
 
     uint32_t getROMSize();

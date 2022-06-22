@@ -261,6 +261,33 @@ namespace Cartridge
         pio_sm_set_enabled(pio0, pioSM, false);
     }
 
+    void readDMG(uint16_t addr, uint8_t *data, int count)
+    {
+        // this is basically the GBA RAM code using the other CS
+        assert(addr + count <= 0x10000);
+
+        // data pins
+        gpio_set_dir_in_masked(0xFF << 16);
+
+        while(count--)
+        {
+            pio_sm_put_blocking(pio0, pioSM, addr << 16);
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, 0b001)); // out address, rd active
+            
+            sleep_us(1);
+
+            *data++ = gpio_get_all() >> 16;
+
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_null, 16) | pio_encode_sideset_opt(3, 0b011)); // discard remaining bits, rd inactive
+            sleep_us(1);
+            addr++;
+        }
+
+        pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b111)); // cs inactive
+
+        gpio_set_dir_out_masked(0xFF << 16);
+    }
+
     HeaderInfo readHeader()
     {
         HeaderInfo header = {};
