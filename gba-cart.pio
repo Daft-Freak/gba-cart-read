@@ -3,8 +3,8 @@
 
 ; sideset wr, rd, romCS
 
-out x, 16 ; halfwords to read
-out pins, 16 side 0b011; address, rom cs active
+out pins, 16 ; address
+out x, 16 side 0b011 [1] ; halfwords to read, rom cs active
 
 ; set data pins to input
 ; (we pushed 0xFFFF0000 to get the 0s here...)

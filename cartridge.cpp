@@ -108,7 +108,7 @@ namespace Cartridge
         pio_sm_exec(pio0, pioSM, pio_encode_jmp(start));
 
         // count and low bits of address
-        pio_sm_put_blocking(pio0, pioSM, (count - 1) << 16 | ((addr >> 1) & 0xFFFF));
+        pio_sm_put_blocking(pio0, pioSM, (count - 1) | ((addr >> 1) & 0xFFFF) << 16);
         pio_sm_put_blocking(pio0, pioSM, 0x0000FFFF); // masks to set input/output
 
         // setup DMA for read
