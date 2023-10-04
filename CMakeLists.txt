@@ -31,7 +31,7 @@ pico_set_program_name(gba-cart-read "gba-cart-read")
 pico_set_program_version(gba-cart-read "0.1")
 
 pico_enable_stdio_uart(gba-cart-read 0)
-pico_enable_stdio_usb(gba-cart-read 0)
+pico_enable_stdio_usb(gba-cart-read 1)
 
 # Add the standard library to the build
 target_link_libraries(gba-cart-read

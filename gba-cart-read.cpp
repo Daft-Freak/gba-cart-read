@@ -42,9 +42,9 @@ static void readSave(uint32_t offset, uint32_t len, uint8_t *buf)
 
 int main()
 {
-    stdio_init_all();
-
     tusb_init();
+
+    stdio_init_all();
 
     Cartridge::initIO();
 
