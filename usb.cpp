@@ -7,29 +7,6 @@
 #include "config.h"
 #include "filesystem.hpp"
 
-namespace USB
-{
-    // CDC helper
-    void writeCDC(const char *message)
-    {
-        if(!tud_cdc_connected())
-            return;
-
-        auto len = strlen(message);
-
-        uint32_t done = tud_cdc_write(message, len);
-
-        while(done < len)
-        {
-            tud_task();
-            if(!tud_ready())
-                break;
-
-            done += tud_cdc_write((const char *)message + done, len - done);
-        }
-    }
-}
-
 // USB MSC glue
 static bool storageEjected = false;
 
