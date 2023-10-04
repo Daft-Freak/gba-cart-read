@@ -6,6 +6,8 @@
 #include "hardware/dma.h"
 #include "hardware/pio.h"
 
+#include "tusb.h"
+
 #include "cartridge.hpp"
 #include "gba-cart.pio.h"
 
@@ -364,6 +366,11 @@ namespace Cartridge
         // skip the header, should be word aligned
         for(uint32_t offset = 0xC0; offset < romSize; offset += 4)
         {
+            // this can take too long and break usb
+            // FIXME: bit of a hack
+            if((offset & 0xFFFFF) == 0)
+                tud_task();
+
             Cartridge::readROM(offset, buf, 1);
             __compiler_memory_barrier(); // GCC 11+ really wants to optimise most of this function out...
 
