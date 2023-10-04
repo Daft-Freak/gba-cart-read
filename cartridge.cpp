@@ -94,7 +94,7 @@ namespace Cartridge
     }
 
     // read func
-    void readROM(uint32_t addr, uint16_t *data, int count)
+    void readROM(uint32_t addr, volatile uint16_t *data, int count)
     {
         assert((addr & 1) == 0);
         assert(((addr >> 1) & 0xFFFF) + count <= 0x10000);
@@ -127,7 +127,7 @@ namespace Cartridge
         pio_sm_set_enabled(pio0, pioSM, false);
     }
 
-    void readRAMSave(uint16_t addr, uint8_t *data, int count)
+    void readRAMSave(uint16_t addr, volatile uint8_t *data, int count)
     {
         // should also be good for 64k flash
         assert(addr + count <= 0x10000);
@@ -158,7 +158,7 @@ namespace Cartridge
         gpio_set_dir_out_masked(0xFF << 16);
     }
 
-    void writeRAMSave(uint16_t addr, const uint8_t *data, int count)
+    void writeRAMSave(uint16_t addr, volatile const uint8_t *data, int count)
     {
         // also used for flash commands
         assert(addr + count <= 0x8000);
@@ -184,7 +184,7 @@ namespace Cartridge
     }
 
     // only needed for 128k saves
-    void readFlashSave(uint32_t addr, uint8_t *data, int count)
+    void readFlashSave(uint32_t addr, volatile uint8_t *data, int count)
     {
         // no crossing banks
         assert((addr & 0xFFFF) + count <= 0x10000);
@@ -210,7 +210,7 @@ namespace Cartridge
         readRAMSave(addr & 0xFFFF, data, count);
     }
 
-    void readEEPROMSave(uint16_t addr, uint64_t *data, int count, bool is8k)
+    void readEEPROMSave(uint16_t addr, volatile uint64_t *data, int count, bool is8k)
     {
         assert((addr & 7) == 0);
         assert((addr / 8) + count <= (is8k ? 0x400 : 0x40));
@@ -261,7 +261,7 @@ namespace Cartridge
         pio_sm_set_enabled(pio0, pioSM, false);
     }
 
-    void readDMG(uint16_t addr, uint8_t *data, int count)
+    void readDMG(uint16_t addr, volatile uint8_t *data, int count)
     {
         // this is basically the GBA RAM code using the other CS
         assert(addr + count <= 0x10000);

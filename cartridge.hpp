@@ -24,17 +24,17 @@ namespace Cartridge
 
     void initIO();
 
-    void readROM(uint32_t addr, uint16_t *data, int count);
-    
-    void readRAMSave(uint16_t addr, uint8_t *data, int count);
-    void writeRAMSave(uint16_t addr, const uint8_t *data, int count);
+    void readROM(uint32_t addr, volatile uint16_t *data, int count);
 
-    void readFlashSave(uint32_t addr, uint8_t *data, int count);
+    void readRAMSave(uint16_t addr, volatile uint8_t *data, int count);
+    void writeRAMSave(uint16_t addr, volatile const uint8_t *data, int count);
 
-    void readEEPROMSave(uint16_t addr, uint64_t *data, int count, bool is8k);
+    void readFlashSave(uint32_t addr, volatile uint8_t *data, int count);
+
+    void readEEPROMSave(uint16_t addr, volatile uint64_t *data, int count, bool is8k);
 
     // raw access to GB cart
-    void readDMG(uint16_t addr, uint8_t *data, int count);
+    void readDMG(uint16_t addr, volatile uint8_t *data, int count);
 
     HeaderInfo readHeader();
 
