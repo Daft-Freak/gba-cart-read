@@ -316,20 +316,33 @@ namespace Cartridge
 
     uint32_t getROMSize()
     {
-        // check for incrementing values
+        // check for incrementing values (floating bus)
+        // ... also compare single halfword reads vs one continuous read
         uint32_t size = 1 << 22; // start at 4MB
 
         for(; size < 1 << 25; size <<= 1)
         {
-            uint16_t val;
+            // read as a single block
+            uint16_t blockVal[16];
+            Cartridge::readROM(size, blockVal, 16);
 
             // checking first 16 halfwords
             bool has_data = false;
             for(int i = 0; i < 16; i++)
             {
+                // read individually
+                uint16_t val;
                 Cartridge::readROM(size + i * 2, &val, 1);
+
                 if(val != i)
                     has_data = true;
+
+                // data doesn't match, stop
+                if(val != blockVal[i])
+                {
+                    has_data = false;
+                    break;
+                }
             }
 
             // found end of ROM, stop
