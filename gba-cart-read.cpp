@@ -46,6 +46,9 @@ int main()
 
     stdio_init_all();
 
+    // wait to be mounted before scanning for cart
+    while(!tud_mounted()) tud_task();
+
     Cartridge::initIO();
 
     uint32_t lastCheckTime = 0;
