@@ -102,6 +102,12 @@ int main()
                     if(saveSize)
                         Filesystem::addFile(romSize, saveSize, header.gameCode, "SAV", readSave);
                 }
+                else
+                {
+                    // same game, don't reset
+                    lastCheckTime = curTime;
+                    continue;
+                }
             }
             else if(false) // FIXME: we don't have cart detection... or voltage switching
             {
