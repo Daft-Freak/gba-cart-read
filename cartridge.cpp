@@ -365,6 +365,7 @@ namespace Cartridge
         for(uint32_t offset = 0xC0; offset < romSize; offset += 4)
         {
             Cartridge::readROM(offset, buf, 1);
+            __compiler_memory_barrier(); // GCC 11+ really wants to optimise most of this function out...
 
             // first two bytes match, check the rest
             if(buf[0] == eepromStart || buf[0] == sramStart || buf[0] == flashStart)
@@ -382,6 +383,7 @@ namespace Cartridge
                     for(int eepromOff = 8; eepromOff < 512; eepromOff += 8)
                     {
                         readEEPROMSave(eepromOff, &val, 1, true);
+                        __compiler_memory_barrier();
 
                         if(val != val0)
                             return SaveType::EEPROM_8K;
