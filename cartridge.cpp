@@ -28,6 +28,18 @@ namespace Cartridge
 
     static int curFlashBank = -1;
 
+    /*
+    N4 S2 (default)
+    CS -_______-_ ...
+    RD ---__-__-- ...
+
+    N3 S1
+    CS -_____-_ ...
+    RD ---_-_-- ...
+    */
+    static constexpr int romClkDiv = 4; // 125 / 4 / 2 = 15.625Mhz, program has delays for N3/S1
+    static constexpr int eepromClkDiv = 32; // uses N8/S8, so go 8x slower
+
     static void initPIO(PIO pio, uint sm, uint offset)
     {
         int basePin = 0;
@@ -56,10 +68,7 @@ namespace Cartridge
         sm_config_set_out_pins(&c, basePin, dataPins);
         sm_config_set_sideset_pins(&c, basePin + addressPins);
 
-        // default wait states for cart ROM are 4/2, most games use 3/1
-        // ... so we can get a few MHz
-        // but EEPROM uses 8/8, so slow down for that
-        sm_config_set_clkdiv_int_frac(&c, 35, 0);
+        sm_config_set_clkdiv_int_frac(&c, romClkDiv, 0);
 
         pio_sm_init(pio, sm, offset, &c);
     }
@@ -105,6 +114,7 @@ namespace Cartridge
         gpio_put_masked(0xFF << 16, addr >> 1);
 
         // switch program
+        pio_sm_set_clkdiv_int_frac(pio0, pioSM, romClkDiv, 0);
         auto start = romProgramOffset + gba_rom_read_wrap_target;
         pio_sm_set_wrap(pio0, pioSM, start, romProgramOffset + gba_rom_read_wrap);
         pio_sm_exec(pio0, pioSM, pio_encode_jmp(start));
@@ -223,6 +233,7 @@ namespace Cartridge
         gpio_put_masked(0xFF << 16, romAddr >> 1);
 
         // switch program
+        pio_sm_set_clkdiv_int_frac(pio0, pioSM, eepromClkDiv, 0);
         auto start = eepromProgramOffset + gba_eeprom_read_wrap_target;
         pio_sm_set_wrap(pio0, pioSM, start, eepromProgramOffset + gba_eeprom_read_wrap);
         pio_sm_exec(pio0, pioSM, pio_encode_jmp(start));
