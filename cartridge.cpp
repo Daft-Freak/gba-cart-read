@@ -230,7 +230,7 @@ namespace Cartridge
         // counts and low bits of (rom) address
         const int addrBits = is8k ? 14 : 6;
         const int dataBits = 64;
-        uint32_t addrData = (addrBits + 2) << 24 /*extra 3 bits*/ | (dataBits - 1) << 16 | ((romAddr >> 1) & 0xFFFF);
+        uint32_t addrData = (addrBits + 2) << 8 /*extra 3 bits*/ | (dataBits - 1) | ((romAddr >> 1) & 0xFFFF) << 16;
 
         pio_sm_put_blocking(pio0, pioSM, addrData);
         // the EEPROM address

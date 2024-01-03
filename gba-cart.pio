@@ -8,7 +8,7 @@ out x, 16 side 0b011 [1] ; halfwords to read, rom cs active
 
 ; set data pins to input
 ; (we pushed 0xFFFF0000 to get the 0s here...)
-out pindirs 16
+out pindirs 16 [1]
 
 loop:
 nop side 0b001 [1] ; cs/rd active
@@ -23,9 +23,9 @@ out pindirs 16 side 0b111 ; also rom cs inactive
 .program gba_eeprom_read
 .side_set 3 opt
 
-out x, 8 ; address width (includes 11 prefix) 0?
+out pins, 16; address (addr will always be >= 0xFF80)
+out x, 8 side 0b011 ; address width (includes 11 prefix) 0?, rom cs active
 out y, 8 ; data width
-out pins, 16 side 0b011; address, rom cs active (addr will always be >= 0xFF80)
 
 cmd_loop:
 out pins 1 side 0b010 [1] ; output bit, cs/wr avtive
