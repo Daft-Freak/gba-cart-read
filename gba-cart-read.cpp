@@ -8,6 +8,7 @@
 #include "filesystem.hpp"
 
 #ifdef PICO_RP2350
+#define GB_DETECT_PIN 28
 #define STATUS_LED_PIN 31
 #endif
 
@@ -95,10 +96,17 @@ int main()
     gpio_set_dir(STATUS_LED_PIN, true);
 #endif
 
+#ifdef GB_DETECT_PIN
+    gpio_init(GB_DETECT_PIN);
+    gpio_set_dir(GB_DETECT_PIN, false);
+#endif
+
     statusSet(false);
 
     uint32_t lastCheckTime = 0;
     uint32_t lastBlinkTime = 0;
+
+    bool gbDetected = false;
 
     while(true)
     {
@@ -113,6 +121,9 @@ int main()
         // cart detection polling
         if(curTime - lastCheckTime > interval)
         {
+#ifdef GB_DETECT_PIN
+            gbDetected = !gpio_get(GB_DETECT_PIN);
+#endif
             // blink LED if searching
             if(!validGame && curTime - lastBlinkTime >= 500)
             {
@@ -120,54 +131,58 @@ int main()
                 lastBlinkTime = curTime;
             }
 
-            auto header = Cartridge::readHeader();
-
             uint32_t romSize = 0;
 
-            if(header.checksumValid)
+            if(!gbDetected) // !GB == GBA
             {
-                // valid header, check if cart is changing
-                if(memcmp(curGameCode, header.gameCode, 4) != 0)
-                {
-                    // update cart size
-                    memcpy(curGameCode, header.gameCode, 4);
-        
-                    romSize = Cartridge::getROMSize();
-                    uint32_t saveSize = 0;
-                    saveType = Cartridge::getSaveType(romSize);
+                auto header = Cartridge::readHeader();
 
-                    switch(saveType)
+
+                if(header.checksumValid)
+                {
+                    // valid header, check if cart is changing
+                    if(memcmp(curGameCode, header.gameCode, 4) != 0)
                     {
-                        case Cartridge::SaveType::Unknown:
-                            break;
-                        case Cartridge::SaveType::EEPROM_512:
-                            saveSize = 512; break;
-                        case Cartridge::SaveType::EEPROM_8K:
-                            saveSize = 8 * 1024; break;
-                        case Cartridge::SaveType::RAM:
-                            saveSize = 32 * 1024; break;
-                        case Cartridge::SaveType::Flash_64K:
-                            saveSize = 64 * 1024; break;
-                        case Cartridge::SaveType::Flash_128K:
-                            saveSize = 128 * 1024; break;
+                        // update cart size
+                        memcpy(curGameCode, header.gameCode, 4);
+            
+                        romSize = Cartridge::getROMSize();
+                        uint32_t saveSize = 0;
+                        saveType = Cartridge::getSaveType(romSize);
+
+                        switch(saveType)
+                        {
+                            case Cartridge::SaveType::Unknown:
+                                break;
+                            case Cartridge::SaveType::EEPROM_512:
+                                saveSize = 512; break;
+                            case Cartridge::SaveType::EEPROM_8K:
+                                saveSize = 8 * 1024; break;
+                            case Cartridge::SaveType::RAM:
+                                saveSize = 32 * 1024; break;
+                            case Cartridge::SaveType::Flash_64K:
+                                saveSize = 64 * 1024; break;
+                            case Cartridge::SaveType::Flash_128K:
+                                saveSize = 128 * 1024; break;
+                        }
+
+                        Filesystem::setTargetSize(romSize + saveSize);
+
+                        Filesystem::resetFiles();
+                        Filesystem::addFile(0, romSize, header.gameCode, "GBA", readROM);
+
+                        if(saveSize)
+                            Filesystem::addFile(romSize, saveSize, header.gameCode, "SAV", readSave);
                     }
-
-                    Filesystem::setTargetSize(romSize + saveSize);
-
-                    Filesystem::resetFiles();
-                    Filesystem::addFile(0, romSize, header.gameCode, "GBA", readROM);
-
-                    if(saveSize)
-                        Filesystem::addFile(romSize, saveSize, header.gameCode, "SAV", readSave);
-                }
-                else
-                {
-                    // same game, don't reset
-                    lastCheckTime = curTime;
-                    continue;
+                    else
+                    {
+                        // same game, don't reset
+                        lastCheckTime = curTime;
+                        continue;
+                    }
                 }
             }
-            else if(false) // FIXME: we don't have cart detection... or voltage switching
+            else // GB
             {
                 uint8_t dmgHeader[0x50];
                 Cartridge::readDMG(0x100, dmgHeader, 0x50);
