@@ -188,7 +188,7 @@ int main()
 
                 if(header.checksumValid)
                 {
-                    romSize = 32 * 1024; // TODO
+                    romSize = Cartridge::getDMGROMSize(header);
 
                     if(!curGameCode[0])
                     {

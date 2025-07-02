@@ -49,5 +49,8 @@ namespace Cartridge
 
     uint32_t getGBAROMSize();
 
+    uint32_t getDMGROMSize(const DMGHeaderInfo &header);
+    uint32_t getDMGRAMSize(const DMGHeaderInfo &header);
+
     SaveType getSaveType(uint32_t romSize);
 }

@@ -432,6 +432,34 @@ namespace Cartridge
         return size;
     }
 
+    uint32_t getDMGROMSize(const DMGHeaderInfo &header)
+    {
+        if(header.romSize <= 8)
+            return (32 * 1024) << header.romSize;
+
+        return 0;
+    }
+
+    uint32_t getDMGRAMSize(const DMGHeaderInfo &header)
+    {
+        // TODO: MBC2 has internal RAM
+
+        switch(header.ramSize)
+        {
+            case 0:
+            default:
+                return 0;
+            case 2:
+                return 8 * 1024;
+            case 3:
+                return 32 * 1024;
+            case 4:
+                return 128 * 1024;
+            case 5:
+                return 64 * 1024;
+        }
+    }
+
     SaveType getSaveType(uint32_t romSize)
     {
         // search for save type marker
