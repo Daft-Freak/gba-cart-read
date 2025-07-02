@@ -135,7 +135,7 @@ int main()
 
             if(!gbDetected) // !GB == GBA
             {
-                auto header = Cartridge::readHeader();
+                auto header = Cartridge::readGBAHeader();
 
 
                 if(header.checksumValid)

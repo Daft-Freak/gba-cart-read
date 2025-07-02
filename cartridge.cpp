@@ -329,9 +329,9 @@ namespace Cartridge
         highAddrData8Out();
     }
 
-    HeaderInfo readHeader()
+    GBAHeaderInfo readGBAHeader()
     {
-        HeaderInfo header = {};
+        GBAHeaderInfo header = {};
 
         uint16_t buf[96];
         Cartridge::readROM(0, buf, std::size(buf));

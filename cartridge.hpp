@@ -5,7 +5,7 @@
 namespace Cartridge
 {
     // partial, nulls added to string-ish fields
-    struct HeaderInfo
+    struct GBAHeaderInfo
     {
         char title[13];
         char gameCode[5];
@@ -36,7 +36,7 @@ namespace Cartridge
     // raw access to GB cart
     void readDMG(uint16_t addr, volatile uint8_t *data, int count);
 
-    HeaderInfo readHeader();
+    GBAHeaderInfo readGBAHeader();
 
     uint32_t getROMSize();
 
