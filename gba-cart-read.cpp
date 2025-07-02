@@ -14,7 +14,11 @@
 
 static char curGameCode[4]{0};
 
+// GBA
 static Cartridge::SaveType saveType = Cartridge::SaveType::Unknown;
+
+// DMG
+static Cartridge::MBCType mbcType = Cartridge::MBCType::None;
 
 static void statusSet(bool value)
 {
@@ -47,7 +51,10 @@ static void readDMGROM(uint32_t offset, uint32_t len, uint8_t *buf)
     // blink while reading
     blinkLEDForAccess();
 
-    return Cartridge::readDMG(offset, buf, len);
+    if(mbcType == Cartridge::MBCType::None)
+        Cartridge::readDMG(offset, buf, len);
+    else if(mbcType == Cartridge::MBCType::MBC1)
+        Cartridge::readMBC1ROM(offset, buf, len);
 }
 
 static void readROM(uint32_t offset, uint32_t len, uint8_t *buf)
@@ -189,6 +196,7 @@ int main()
                 if(header.checksumValid)
                 {
                     romSize = Cartridge::getDMGROMSize(header);
+                    mbcType = Cartridge::getMBCType(header);
 
                     if(!curGameCode[0])
                     {
