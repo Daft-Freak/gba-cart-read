@@ -190,13 +190,17 @@ int main()
                 // only the first 16 bytes
                 static const uint8_t logoData[]{0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B, 0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D};
 
-                if(memcmp(dmgHeader + 4, logoData, sizeof(logoData)) == 0 && !curGameCode[0])
+                if(memcmp(dmgHeader + 4, logoData, sizeof(logoData)) == 0)
                 {
-                    romSize = 32 * 1024;
-                    Filesystem::setTargetSize(romSize);
+                    romSize = 32 * 1024; // TODO
 
-                    Filesystem::resetFiles();
-                    Filesystem::addFile(0, romSize, "ROM", "GB", readDMGROM);
+                    if(!curGameCode[0])
+                    {
+                        Filesystem::setTargetSize(romSize);
+
+                        Filesystem::resetFiles();
+                        Filesystem::addFile(0, romSize, "ROM", "GB", readDMGROM);
+                    }
 
                     curGameCode[0] = 1;
                 }
