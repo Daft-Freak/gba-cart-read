@@ -19,6 +19,10 @@ static const int rdPin = 25;
 static const int romCSPin = 26;
 static const int ramCSPin = 27;
 
+#ifdef PICO_RP2350
+#define DIR_OVERRIDE_PIN 29
+#endif
+
 namespace Cartridge
 {
     static int pioSM = -1;
@@ -39,6 +43,24 @@ namespace Cartridge
     */
     static constexpr int romClkDiv = 4; // 125 / 4 / 2 = 15.625Mhz, program has delays for N3/S1
     static constexpr int eepromClkDiv = 32; // uses N8/S8, so go 8x slower
+
+    // high address bits for GBA ROM or 8-bit data bus 
+    static void highAddrData8Out()
+    {
+#ifdef DIR_OVERRIDE_PIN
+        gpio_put(DIR_OVERRIDE_PIN, true);
+#endif
+        gpio_set_dir_out_masked(0xFF << 16);
+    }
+
+    static void highAddrData8In()
+    {
+        gpio_set_dir_in_masked(0xFF << 16);
+#ifdef DIR_OVERRIDE_PIN
+        gpio_put(DIR_OVERRIDE_PIN, false);
+        sleep_ms(2); // ??
+#endif
+    }
 
     static void initPIO(PIO pio, uint sm, uint offset)
     {
@@ -81,10 +103,16 @@ namespace Cartridge
         pioSM = pio_claim_unused_sm(pio0, true);
         initPIO(pio0, pioSM, romProgramOffset);
 
+#ifdef DIR_OVERRIDE_PIN
+        // buffer direction control
+        gpio_init(DIR_OVERRIDE_PIN);
+        gpio_set_dir(DIR_OVERRIDE_PIN, true);
+#endif
+
         // init high address bits (PIO doesn't control these)
         auto mask = 0xFF << 16;
         gpio_init_mask(mask);
-        gpio_set_dir_out_masked(mask);
+        highAddrData8Out();
 
         // and RAM CS
         gpio_init(ramCSPin);
@@ -144,12 +172,12 @@ namespace Cartridge
         // should also be good for 64k flash
         assert(addr + count <= 0x10000);
 
+        // the high 8 bits from the ROM addr are the data pins here
+        highAddrData8In();
+
         // manually set pins
         gpio_put(ramCSPin, false); // cs active
         sleep_us(1);
-        
-        // the high 8 bits from the ROM addr are the data pins here
-        gpio_set_dir_in_masked(0xFF << 16);
 
         while(count--)
         {
@@ -167,7 +195,7 @@ namespace Cartridge
 
         gpio_put(ramCSPin, true); // cs inactive
 
-        gpio_set_dir_out_masked(0xFF << 16);
+        highAddrData8Out();
     }
 
     void writeRAMSave(uint16_t addr, volatile const uint8_t *data, int count)
@@ -280,12 +308,12 @@ namespace Cartridge
         assert(addr + count <= 0x10000);
 
         // data pins
-        gpio_set_dir_in_masked(0xFF << 16);
+        highAddrData8In();
 
         while(count--)
         {
             pio_sm_put_blocking(pio0, pioSM, addr << 16);
-            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, 0b001)); // out address, rd active
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, 0b001)); // out address, rd+cs active
             
             sleep_us(1);
 
@@ -298,7 +326,7 @@ namespace Cartridge
 
         pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b111)); // cs inactive
 
-        gpio_set_dir_out_masked(0xFF << 16);
+        highAddrData8Out();
     }
 
     HeaderInfo readHeader()
