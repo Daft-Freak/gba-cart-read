@@ -11,6 +11,14 @@ namespace Cartridge
         char gameCode[5];
         bool checksumValid;
     };
+    struct DMGHeaderInfo
+    {
+        char title[17];
+        uint8_t cartType;
+        uint8_t romSize;
+        uint8_t ramSize;
+        bool checksumValid;
+    };
 
     enum class SaveType
     {
@@ -37,6 +45,7 @@ namespace Cartridge
     void readDMG(uint16_t addr, volatile uint8_t *data, int count);
 
     GBAHeaderInfo readGBAHeader();
+    DMGHeaderInfo readDMGHeader();
 
     uint32_t getROMSize();
 

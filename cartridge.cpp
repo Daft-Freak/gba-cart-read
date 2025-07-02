@@ -355,6 +355,44 @@ namespace Cartridge
         return header;
     }
 
+    DMGHeaderInfo readDMGHeader()
+    {
+        DMGHeaderInfo header = {};
+
+        uint8_t dmgHeader[0x50];
+        Cartridge::readDMG(0x100, dmgHeader, 0x50);
+
+        // logo check (only the first 16 bytes)
+        static const uint8_t logoData[]{0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B, 0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D};
+
+        if(memcmp(dmgHeader + 4, logoData, sizeof(logoData)) != 0)
+            return header;
+        
+        // checksum check
+        int checksum = 0;
+        for(int i = 0x34; i < 0x4D; i++)
+            checksum = checksum - dmgHeader[i] - 1;
+
+        checksum = checksum & 0xFF;
+
+        if(dmgHeader[0x4D] != checksum)
+            return header;
+
+        header.checksumValid = true;
+
+        header.cartType = dmgHeader[0x47];
+        header.romSize = dmgHeader[0x48];
+        header.ramSize = dmgHeader[0x49];
+
+        memcpy(header.title, dmgHeader + 0x34, 16);
+
+        // clear cgb flag
+        if(header.title[15] & 0x80)
+            header.title[15] = 0;
+
+        return header;
+    }
+
     uint32_t getROMSize()
     {
         // check for incrementing values (floating bus)
