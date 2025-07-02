@@ -329,6 +329,42 @@ namespace Cartridge
         highAddrData8Out();
     }
 
+    void writeDMG(uint16_t addr, volatile const uint8_t *data, int count)
+    {
+        while(count--)
+        {
+            gpio_put_masked(0xFF << 16, *data++ << 16); // write data
+
+            pio_sm_put_blocking(pio0, pioSM, addr << 16);
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, 0b010)); // out address, wr+cs active
+
+            sleep_us(1);
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_null, 16) | pio_encode_sideset_opt(3, 0b011)); // discard remaining bits, wr inactive
+
+            addr++;
+        }
+
+        pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b111)); // cs inactive
+    }
+
+    void readMBC1ROM(uint32_t addr, volatile uint8_t *data, int count)
+    {
+        if(addr < 0x4000)
+        {
+            assert(addr + count < 0x4000);
+            readDMG(addr, data, count);
+        }
+        else
+        {
+            int bank = addr / 0x4000;
+            // switch bank
+            uint8_t v = bank & 0x1F;
+            writeDMG(0x2000, &v, 1);
+            // TODO: high 2 bits to 4000 if > 512k
+            readDMG(0x4000 + (addr & 0x3FFF), data, count);
+        }
+    }
+
     GBAHeaderInfo readGBAHeader()
     {
         GBAHeaderInfo header = {};

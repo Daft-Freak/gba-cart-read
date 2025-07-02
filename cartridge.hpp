@@ -54,6 +54,8 @@ namespace Cartridge
     // raw access to GB cart
     void readDMG(uint16_t addr, volatile uint8_t *data, int count);
 
+    void readMBC1ROM(uint32_t addr, volatile uint8_t *data, int count);
+
     GBAHeaderInfo readGBAHeader();
     DMGHeaderInfo readDMGHeader();
 
