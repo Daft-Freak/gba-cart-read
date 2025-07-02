@@ -365,6 +365,22 @@ namespace Cartridge
         }
     }
 
+    void readMBC1RAM(uint32_t addr, volatile uint8_t *data, int count)
+    {
+        // enable RAM
+        uint8_t v = 0xA;
+        writeDMG(0x0000, &v, 1);
+
+        // TODO: bank number to 4000 if > 8k
+        // int bank = addr / 0x2000;
+
+        readDMG(0xA000 + (addr & 0x1FFF), data, count);
+
+        // disable RAM
+        v = 0;
+        writeDMG(0x0000, &v, 1);
+    }
+
     GBAHeaderInfo readGBAHeader()
     {
         GBAHeaderInfo header = {};
