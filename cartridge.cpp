@@ -520,4 +520,39 @@ namespace Cartridge
 
         return SaveType::Unknown;
     }
+
+    MBCType getMBCType(const DMGHeaderInfo &header)
+    {
+        switch(header.cartType)
+        {
+            case 0:
+                return MBCType::None;
+            case 1:
+            case 2: // + RAM
+            case 3: // + RAM + Battery
+                return MBCType::MBC1;
+
+            case 5:
+            case 6: // + Battery
+                return MBCType::MBC2;
+
+            case 0x0F: // + Timer + Battery
+            case 0x10: // + Timer + RAM + Battery
+            case 0x11:
+            case 0x12: // + RAM
+            case 0x13: // + RAM + Battery
+                return MBCType::MBC3;
+
+            case 0x19:
+            case 0x1A: // + RAM
+            case 0x1B: // + RAM + Battery
+            case 0x1C: // + Rumble
+            case 0x1D: // + Rumble + RAM
+            case 0x1E: // + Rumble + RAM + Battery 
+                return  MBCType::MBC5;
+
+            default:
+                return MBCType::None;
+        }
+    }
 }

@@ -30,6 +30,16 @@ namespace Cartridge
         Flash_128K
     };
 
+    enum class MBCType
+    {
+        None = 0,
+        MBC1,
+        MBC1M, // multicart - wired slightly differently
+        MBC2,
+        MBC3,
+        MBC5
+    };
+
     void initIO();
 
     void readROM(uint32_t addr, volatile uint16_t *data, int count);
@@ -53,4 +63,6 @@ namespace Cartridge
     uint32_t getDMGRAMSize(const DMGHeaderInfo &header);
 
     SaveType getSaveType(uint32_t romSize);
+
+    MBCType getMBCType(const DMGHeaderInfo &header);
 }
