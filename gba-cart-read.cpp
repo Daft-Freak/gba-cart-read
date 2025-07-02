@@ -57,6 +57,15 @@ static void readDMGROM(uint32_t offset, uint32_t len, uint8_t *buf)
         Cartridge::readMBC1ROM(offset, buf, len);
 }
 
+static void readDMGRAM(uint32_t offset, uint32_t len, uint8_t *buf)
+{
+    // blink while reading
+    blinkLEDForAccess();
+
+    if(mbcType == Cartridge::MBCType::MBC1)
+        Cartridge::readMBC1RAM(offset, buf, len);
+}
+
 static void readROM(uint32_t offset, uint32_t len, uint8_t *buf)
 {
     // might have to split this to not wrap the address
@@ -196,15 +205,19 @@ int main()
                 if(header.checksumValid)
                 {
                     romSize = Cartridge::getDMGROMSize(header);
+                    uint32_t ramSize = Cartridge::getDMGRAMSize(header);
                     mbcType = Cartridge::getMBCType(header);
 
                     if(!curGameCode[0])
                     {
-                        Filesystem::setTargetSize(romSize);
+                        Filesystem::setTargetSize(romSize + ramSize);
 
                         Filesystem::resetFiles();
                         // title will get truncated to 8 chars...
                         Filesystem::addFile(0, romSize, header.title, header.cgbSupport ? "GBC" : "GB", readDMGROM);
+
+                        if(ramSize)
+                            Filesystem::addFile(romSize, ramSize, header.title, "SAV", readDMGRAM);
                     }
 
                     curGameCode[0] = 1;
