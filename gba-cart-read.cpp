@@ -204,7 +204,7 @@ int main()
 
                         Filesystem::resetFiles();
                         // title will get truncated to 8 chars...
-                        Filesystem::addFile(0, romSize, header.title, "GB", readDMGROM);
+                        Filesystem::addFile(0, romSize, header.title, header.cgbSupport ? "GBC" : "GB", readDMGROM);
                     }
 
                     curGameCode[0] = 1;

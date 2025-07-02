@@ -424,8 +424,10 @@ namespace Cartridge
 
         // clear cgb flag
         if(header.title[15] & 0x80)
+        {
+            header.cgbSupport = true;
             header.title[15] = 0;
-
+        }
         return header;
     }
 

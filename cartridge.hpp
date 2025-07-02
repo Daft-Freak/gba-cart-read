@@ -17,6 +17,7 @@ namespace Cartridge
         uint8_t cartType;
         uint8_t romSize;
         uint8_t ramSize;
+        bool cgbSupport;
         bool checksumValid;
     };
 
