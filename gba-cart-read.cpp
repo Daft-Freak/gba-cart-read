@@ -146,7 +146,7 @@ int main()
                         // update cart size
                         memcpy(curGameCode, header.gameCode, 4);
             
-                        romSize = Cartridge::getROMSize();
+                        romSize = Cartridge::getGBAROMSize();
                         uint32_t saveSize = 0;
                         saveType = Cartridge::getSaveType(romSize);
 

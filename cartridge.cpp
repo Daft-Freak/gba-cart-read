@@ -393,7 +393,7 @@ namespace Cartridge
         return header;
     }
 
-    uint32_t getROMSize()
+    uint32_t getGBAROMSize()
     {
         // check for incrementing values (floating bus)
         // ... also compare single halfword reads vs one continuous read

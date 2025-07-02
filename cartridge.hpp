@@ -47,7 +47,7 @@ namespace Cartridge
     GBAHeaderInfo readGBAHeader();
     DMGHeaderInfo readDMGHeader();
 
-    uint32_t getROMSize();
+    uint32_t getGBAROMSize();
 
     SaveType getSaveType(uint32_t romSize);
 }
