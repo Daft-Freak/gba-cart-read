@@ -381,6 +381,43 @@ namespace Cartridge
         writeDMG(0x0000, &v, 1);
     }
 
+    void readMBC3ROM(uint32_t addr, volatile uint8_t *data, int count)
+    {
+        if(addr < 0x4000)
+        {
+            assert(addr + count < 0x4000);
+            readDMG(addr, data, count);
+        }
+        else
+        {
+            int bank = addr / 0x4000;
+            // switch bank
+            uint8_t v = bank;
+            writeDMG(0x2000, &v, 1);
+            readDMG(0x4000 + (addr & 0x3FFF), data, count);
+        }
+    }
+
+    void readMBC3RAM(uint32_t addr, volatile uint8_t *data, int count)
+    {
+        // enable RAM
+        uint8_t v = 0xA;
+        writeDMG(0x0000, &v, 1);
+
+        // switch bank
+        int bank = addr / 0x2000;
+        assert(bank < 8);
+
+        v = bank;
+        writeDMG(0x4000, &v, 1);
+
+        readDMG(0xA000 + (addr & 0x1FFF), data, count);
+
+        // disable RAM
+        v = 0;
+        writeDMG(0x0000, &v, 1);
+    }
+
     GBAHeaderInfo readGBAHeader()
     {
         GBAHeaderInfo header = {};
