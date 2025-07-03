@@ -189,10 +189,17 @@ int main()
                         Filesystem::setTargetSize(romSize + saveSize);
 
                         Filesystem::resetFiles();
-                        Filesystem::addFile(0, romSize, header.gameCode, "GBA", readROM);
+
+                        char longName[32];
+                        snprintf(longName, 32, "%s.gba", header.title);
+
+                        Filesystem::addFile(0, romSize, header.gameCode, "GBA", readROM, longName);
 
                         if(saveSize)
-                            Filesystem::addFile(romSize, saveSize, header.gameCode, "SAV", readSave);
+                        {
+                            snprintf(longName, 32, "%s.sav", header.title);
+                            Filesystem::addFile(romSize, saveSize, header.gameCode, "SAV", readSave, longName);
+                        }
                     }
                     else
                     {
@@ -217,11 +224,19 @@ int main()
                         Filesystem::setTargetSize(romSize + ramSize);
 
                         Filesystem::resetFiles();
-                        // title will get truncated to 8 chars...
-                        Filesystem::addFile(0, romSize, header.title, header.cgbSupport ? "GBC" : "GB", readDMGROM);
+
+                        // use lowercase for long names
+                        char longName[32];
+                        snprintf(longName, 32, "%s.%s", header.title, header.cgbSupport ? "gbc" : "gb");
+
+                        // title will get truncated to 8 chars in short name
+                        Filesystem::addFile(0, romSize, header.title, header.cgbSupport ? "GBC" : "GB", readDMGROM, longName);
 
                         if(ramSize)
-                            Filesystem::addFile(romSize, ramSize, header.title, "SAV", readDMGRAM);
+                        {
+                            snprintf(longName, 32, "%s.sav", header.title);
+                            Filesystem::addFile(romSize, ramSize, header.title, "SAV", readDMGRAM, longName);
+                        }
                     }
 
                     curGameCode[0] = 1;
