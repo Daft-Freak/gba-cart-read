@@ -50,6 +50,20 @@ struct DirEntry
     uint32_t fileSize;
 };
 
+struct [[gnu::packed]] LFNEntry
+{
+    uint8_t sequence;
+    char16_t name0[5];
+    uint8_t attributes;
+    uint8_t reserved;
+    uint8_t nameChecksum;
+    char16_t name1[6];
+    uint16_t startCluster;
+    char16_t name2[2];
+};
+
+static_assert(sizeof(DirEntry) == sizeof(LFNEntry));
+
 static_assert(sizeof(DirEntry) == 32);
 
 static constexpr unsigned int nextPowerOf2(unsigned int i)
@@ -125,10 +139,26 @@ namespace Filesystem
         return numSectors;
     }
 
-    void addFile(uint32_t offset, uint32_t size, const char *shortName, const char *shortExt, ReadFunc readFn)
+    void addFile(uint32_t offset, uint32_t size, const char *shortName, const char *shortExt, ReadFunc readFn, const char *longName)
     {
         if(curDirEntry >= maxRootEntries)
             return;
+
+        // setup lfn
+        int numLFNEntries;
+        int lfnEntry = -1;
+
+        if(longName)
+        {
+            numLFNEntries = (strlen(longName) + 12) / 13;
+
+            // reserve space if there are enough entries
+            if(curDirEntry + numLFNEntries < maxRootEntries)
+            {
+                lfnEntry = curDirEntry;
+                curDirEntry += numLFNEntries;
+            }
+        }
         
         auto &entry = rootEntries[curDirEntry];
         fileReadFuncs[curDirEntry] = readFn;
@@ -147,6 +177,36 @@ namespace Filesystem
         entry.fileSize = size;
 
         curDirEntry++;
+
+        // fill in long name
+        if(lfnEntry != -1)
+        {
+            uint8_t lfnChecksum = 0;
+            auto shortName = entry.shortName;
+            for(int i = 0; i < 11; i++)
+                lfnChecksum = (lfnChecksum << 7) + (lfnChecksum >> 1) + *shortName++;
+
+            for(int i = 0; i < numLFNEntries; i++)
+            {
+                auto &entry = *(LFNEntry *)&rootEntries[lfnEntry + i];
+                memset(&entry, 0, sizeof(LFNEntry));
+
+                entry.sequence = (numLFNEntries - i) | (i == 0 ? 0x40 : 0); // last part is stored first
+                entry.attributes = 0xF;
+                entry.nameChecksum = lfnChecksum;
+
+                auto namePtr = longName + (numLFNEntries - i - 1) * 13;
+
+                for(int i = 0; i < 5 && *namePtr; i++, namePtr++)
+                    entry.name0[i] = *namePtr;
+
+                for(int i = 0; i < 6 && *namePtr; i++, namePtr++)
+                    entry.name1[i] = *namePtr;
+
+                for(int i = 0; i < 2 && *namePtr; i++, namePtr++)
+                    entry.name2[i] = *namePtr;
+            }
+        }
     }
 
     void resetFiles()
