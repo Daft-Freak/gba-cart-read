@@ -286,6 +286,10 @@ namespace Filesystem
                     // assuming the files are in order...
                     for(auto &entry : rootEntries)
                     {
+                        // skip LFN
+                        if(entry.attributes == 0xF)
+                            continue;
+
                         fileLen = (entry.fileSize + clusterSize - 1) / clusterSize;
                         if(cluster < entry.startCluster + fileLen)
                         {
@@ -349,6 +353,13 @@ namespace Filesystem
                 int i = 0;
                 for(auto &entry : rootEntries)
                 {
+                    // skip LFN
+                    if(entry.attributes == 0xF)
+                    {
+                        i++;
+                        continue;
+                    }
+
                     uint32_t startByte = (entry.startCluster - 2) * sectorsPerCluster * sectorSize;
                     if(off >= startByte && off - startByte < entry.fileSize)
                     {
