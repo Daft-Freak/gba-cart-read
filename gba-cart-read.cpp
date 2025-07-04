@@ -193,12 +193,12 @@ int main()
                         char longName[32];
                         snprintf(longName, 32, "%s.gba", header.title);
 
-                        Filesystem::addFile(0, romSize, header.gameCode, "GBA", readROM, longName);
+                        Filesystem::addFile(0, romSize, longName, readROM);
 
                         if(saveSize)
                         {
                             snprintf(longName, 32, "%s.sav", header.title);
-                            Filesystem::addFile(romSize, saveSize, header.gameCode, "SAV", readSave, longName);
+                            Filesystem::addFile(romSize, saveSize, longName, readSave);
                         }
                     }
                     else
@@ -230,12 +230,12 @@ int main()
                         snprintf(longName, 32, "%s.%s", header.title, header.cgbSupport ? "gbc" : "gb");
 
                         // title will get truncated to 8 chars in short name
-                        Filesystem::addFile(0, romSize, header.title, header.cgbSupport ? "GBC" : "GB", readDMGROM, longName);
+                        Filesystem::addFile(0, romSize, longName, readDMGROM);
 
                         if(ramSize)
                         {
                             snprintf(longName, 32, "%s.sav", header.title);
-                            Filesystem::addFile(romSize, ramSize, header.title, "SAV", readDMGRAM, longName);
+                            Filesystem::addFile(romSize, ramSize, longName, readDMGRAM);
                         }
                     }
 
