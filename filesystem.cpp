@@ -195,16 +195,35 @@ namespace Filesystem
                 entry.attributes = 0xF;
                 entry.nameChecksum = lfnChecksum;
 
+                // copy chars
                 auto namePtr = longName + (numLFNEntries - i - 1) * 13;
 
-                for(int i = 0; i < 5 && *namePtr; i++, namePtr++)
-                    entry.name0[i] = *namePtr;
+                char16_t nameBuf[13];
+                int j = 0;
+                for(; j < 13; j++, namePtr++)
+                {
+                    nameBuf[j] = *namePtr;
 
-                for(int i = 0; i < 6 && *namePtr; i++, namePtr++)
-                    entry.name1[i] = *namePtr;
+                    if(!*namePtr)
+                        break;
+                }
 
-                for(int i = 0; i < 2 && *namePtr; i++, namePtr++)
-                    entry.name2[i] = *namePtr;
+                j++;
+
+                // fill remaining with 0xFFFF
+                for(; j < 13; j++)
+                    nameBuf[j] = 0xFFFF;
+
+                // copy to entry
+                auto namePtr16 = nameBuf;
+                for(int k = 0; k < 5; k++)
+                    entry.name0[k] = *namePtr16++;
+
+                for(int k = 0; k < 6; k++)
+                    entry.name1[k] = *namePtr16++;
+
+                for(int k = 0; k < 2; k++)
+                    entry.name2[k] = *namePtr16++;
             }
         }
     }
