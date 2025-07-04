@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include <cctype>
 #include <cstring>
 
 #include "filesystem.hpp"
@@ -226,6 +227,28 @@ namespace Filesystem
                     entry.name2[k] = *namePtr16++;
             }
         }
+    }
+
+    void addFile(uint32_t offset, uint32_t size, const char *longName, ReadFunc readFn)
+    {
+        char shortName[9]{};
+        char shortExt[4]{};
+
+        // generate short names
+        // TODO: handle invalid chars
+        for(int i = 0; i < 8 && longName[i] && longName[i] != '.'; i++)
+            shortName[i] = toupper(longName[i]);
+        
+        auto ext = strrchr(longName, '.');
+
+        if(ext)
+        {
+            ext++;
+            for(int i = 0; i < 3 && ext[i]; i++)
+                shortExt[i] = toupper(ext[i]);
+        }
+
+        addFile(offset, size, shortName, shortExt, readFn, longName);
     }
 
     void resetFiles()
