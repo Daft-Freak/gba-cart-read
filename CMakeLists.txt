@@ -50,3 +50,7 @@ target_include_directories(gba-cart-read PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_compile_options(gba-cart-read PRIVATE -Wall)
 
 pico_add_extra_outputs(gba-cart-read)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/gba-cart-read.uf2
+    DESTINATION bin
+)
