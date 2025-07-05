@@ -57,6 +57,8 @@ static void readDMGROM(uint32_t offset, uint32_t len, uint8_t *buf)
         Cartridge::readMBC1ROM(offset, buf, len);
     else if(mbcType == Cartridge::MBCType::MBC3)
         Cartridge::readMBC3ROM(offset, buf, len);
+    else if(mbcType == Cartridge::MBCType::MBC5)
+        Cartridge::readMBC5ROM(offset, buf, len);
 }
 
 static void readDMGRAM(uint32_t offset, uint32_t len, uint8_t *buf)
@@ -68,6 +70,8 @@ static void readDMGRAM(uint32_t offset, uint32_t len, uint8_t *buf)
         Cartridge::readMBC1RAM(offset, buf, len);
     if(mbcType == Cartridge::MBCType::MBC3)
         Cartridge::readMBC3RAM(offset, buf, len);
+    if(mbcType == Cartridge::MBCType::MBC5)
+        Cartridge::readMBC5RAM(offset, buf, len);
 }
 
 static void readROM(uint32_t offset, uint32_t len, uint8_t *buf)
