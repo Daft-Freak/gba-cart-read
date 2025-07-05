@@ -61,6 +61,9 @@ namespace Cartridge
     void readMBC3ROM(uint32_t addr, volatile uint8_t *data, int count);
     void readMBC3RAM(uint32_t addr, volatile uint8_t *data, int count);
 
+    void readMBC5ROM(uint32_t addr, volatile uint8_t *data, int count);
+    void readMBC5RAM(uint32_t addr, volatile uint8_t *data, int count);
+
     GBAHeaderInfo readGBAHeader();
     DMGHeaderInfo readDMGHeader();
 
