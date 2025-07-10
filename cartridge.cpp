@@ -383,6 +383,45 @@ namespace Cartridge
         writeDMG(0x0000, &v, 1);
     }
 
+    void readMBC2ROM(uint32_t addr, volatile uint8_t *data, int count)
+    {
+        if(addr < 0x4000)
+        {
+            assert(addr + count < 0x4000);
+            readDMG(addr, data, count);
+        }
+        else
+        {
+            int bank = addr / 0x4000;
+            // switch bank (limited to 16)
+            uint8_t v = bank & 0xF;
+            writeDMG(0x2100, &v, 1);
+
+            readDMG(0x4000 + (addr & 0x3FFF), data, count);
+        }
+    }
+
+    void readMBC2RAM(uint32_t addr, volatile uint8_t *data, int count)
+    {
+        // enable RAM
+        uint8_t v = 0xA;
+        writeDMG(0x0000, &v, 1);
+
+        // no banks, only 512 (half-)bytes
+        assert(addr < 0x200);
+
+        // seem to need to read one byte at a time
+        for(int i = 0; i < count; i++)
+        {
+            readDMG(0xA000 + addr + i, data + i, 1);
+            data[i] |= 0xF0;
+        }
+
+        // disable RAM
+        v = 0;
+        writeDMG(0x0000, &v, 1);
+    }
+
     void readMBC3ROM(uint32_t addr, volatile uint8_t *data, int count)
     {
         if(addr < 0x4000)

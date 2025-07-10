@@ -58,6 +58,9 @@ namespace Cartridge
     void readMBC1ROM(uint32_t addr, volatile uint8_t *data, int count);
     void readMBC1RAM(uint32_t addr, volatile uint8_t *data, int count);
 
+    void readMBC2ROM(uint32_t addr, volatile uint8_t *data, int count);
+    void readMBC2RAM(uint32_t addr, volatile uint8_t *data, int count);
+
     void readMBC3ROM(uint32_t addr, volatile uint8_t *data, int count);
     void readMBC3RAM(uint32_t addr, volatile uint8_t *data, int count);
 
