@@ -617,7 +617,9 @@ namespace Cartridge
 
     uint32_t getDMGRAMSize(const DMGHeaderInfo &header)
     {
-        // TODO: MBC2 has internal RAM
+        // MBC2 has internal RAM
+        if(getMBCType(header) == MBCType::MBC2)
+            return 512;
 
         switch(header.ramSize)
         {
