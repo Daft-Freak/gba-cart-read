@@ -23,5 +23,6 @@ For the old RP2040-based boards, just build like any other pico-sdk based projec
 ### Tested GB/GBC carts (v4)
  - No MBC
  - MBC1 (<= 512k ROM / 8k RAM)
+ - MBC2
  - MBC3
  - MBC5
