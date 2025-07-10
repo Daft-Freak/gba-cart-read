@@ -210,6 +210,7 @@ namespace Cartridge
         while(count--)
         {
             gpio_put_masked(0xFF << 16, *data++ << 16); // write data
+            sleep_us(1);
 
             pio_sm_put_blocking(pio0, pioSM, addr << 16);
             pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, 0b110)); // out address, wr active
@@ -221,6 +222,7 @@ namespace Cartridge
         }
 
         gpio_put(ramCSPin, true); // cs inactive
+        sleep_us(1);
     }
 
     // only needed for 128k saves
