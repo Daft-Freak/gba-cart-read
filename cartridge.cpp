@@ -369,12 +369,12 @@ namespace Cartridge
 
     void readMBC1RAM(uint32_t addr, volatile uint8_t *data, int count)
     {
+        // TODO: bank number to 4000 if > 8k
+        // int bank = addr / 0x2000;
+    
         // enable RAM
         uint8_t v = 0xA;
         writeDMG(0x0000, &v, 1);
-
-        // TODO: bank number to 4000 if > 8k
-        // int bank = addr / 0x2000;
 
         readDMG(0xA000 + (addr & 0x1FFF), data, count);
 
@@ -441,16 +441,16 @@ namespace Cartridge
 
     void readMBC3RAM(uint32_t addr, volatile uint8_t *data, int count)
     {
-        // enable RAM
-        uint8_t v = 0xA;
-        writeDMG(0x0000, &v, 1);
-
         // switch bank
         int bank = addr / 0x2000;
         assert(bank < 8);
 
-        v = bank;
+        uint8_t v = bank;
         writeDMG(0x4000, &v, 1);
+    
+        // enable RAM
+        v = 0xA;
+        writeDMG(0x0000, &v, 1);
 
         readDMG(0xA000 + (addr & 0x1FFF), data, count);
 
@@ -483,17 +483,17 @@ namespace Cartridge
     void readMBC5RAM(uint32_t addr, volatile uint8_t *data, int count)
     {
         // TODO: same as MBC3, but larger bank num
-    
-        // enable RAM
-        uint8_t v = 0xA;
-        writeDMG(0x0000, &v, 1);
 
         // switch bank
         int bank = addr / 0x2000;
         assert(bank < 16);
 
-        v = bank;
+        uint8_t v = bank;
         writeDMG(0x4000, &v, 1);
+    
+        // enable RAM
+        v = 0xA;
+        writeDMG(0x0000, &v, 1);
 
         readDMG(0xA000 + (addr & 0x1FFF), data, count);
 
