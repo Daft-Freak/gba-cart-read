@@ -333,20 +333,26 @@ namespace Cartridge
 
     void writeDMG(uint16_t addr, volatile const uint8_t *data, int count)
     {
+        pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b011)); // cs active
+
         while(count--)
         {
             gpio_put_masked(0xFF << 16, *data++ << 16); // write data
 
             pio_sm_put_blocking(pio0, pioSM, addr << 16);
-            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, 0b010)); // out address, wr+cs active
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, 0b011)); // out address
 
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_null, 16) | pio_encode_sideset_opt(3, 0b010)); // discard remaining bits, wr active
             sleep_us(1);
-            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_null, 16) | pio_encode_sideset_opt(3, 0b011)); // discard remaining bits, wr inactive
+
+            pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b011)); // wr inactive
+            sleep_us(1);
 
             addr++;
         }
 
         pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b111)); // cs inactive
+        sleep_us(1);
     }
 
     void readMBC1ROM(uint32_t addr, volatile uint8_t *data, int count)
