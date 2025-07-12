@@ -110,13 +110,6 @@ static void readSave(uint32_t offset, uint32_t len, uint8_t *buf)
 
 int main()
 {
-    tusb_init();
-
-    stdio_init_all();
-
-    // wait to be mounted before scanning for cart
-    while(!tud_mounted()) tud_task();
-
     Cartridge::initIO();
 
 #ifdef STATUS_LED_PIN
@@ -128,6 +121,13 @@ int main()
     gpio_init(GB_DETECT_PIN);
     gpio_set_dir(GB_DETECT_PIN, false);
 #endif
+
+    tusb_init();
+
+    stdio_init_all();
+
+    // wait to be mounted before scanning for cart
+    while(!tud_mounted()) tud_task();
 
     statusSet(false);
 
