@@ -98,6 +98,8 @@ namespace Filesystem
     static ReadFunc fileReadFuncs[maxRootEntries]{};
     static int curDirEntry = 1; // 0 is the label
 
+    static char volumeLabel[11] = {'D', 'A', 'F', 'T', 'V', 'O', 'L', 'U', 'M', 'E', ' '};
+
     // this is how much data we want
     void setTargetSize(uint32_t size)
     {
@@ -138,6 +140,15 @@ namespace Filesystem
     uint32_t getNumSectors()
     {
         return numSectors;
+    }
+
+    void setVolumeLabel(const char *label)
+    {
+        int len = strlen(label);
+        memcpy(volumeLabel, label, std::min(11, len));
+
+        for(int i = len; i < 11; i++)
+            volumeLabel[i] = ' ';
     }
 
     void addFile(uint32_t offset, uint32_t size, const char *shortName, const char *shortExt, ReadFunc readFn, const char *longName)
@@ -259,8 +270,6 @@ namespace Filesystem
 
     void read(uint32_t sector, uint32_t count, uint8_t *buf)
     {
-        const char *label = "DAFTVOLUME "; // 11 chars
-
         for(; count; count--, sector++, buf += sectorSize)
         {
             if(sector == 0) // VBR
@@ -294,7 +303,7 @@ namespace Filesystem
                 vbr->driveNumber = 0x80; // first fixed disk
                 vbr->extendedBootSig = 0x29;
                 vbr->volumeId = 0x12345678;
-                memcpy(vbr->volumeLabel, label, 11);
+                memcpy(vbr->volumeLabel, volumeLabel, 11);
                 memcpy(vbr->fsType, "FAT12   ", 8);
             }
             else if(sector >= numReservedSectors && sector < rootDirStart) // FAT
@@ -382,7 +391,7 @@ namespace Filesystem
                 assert(maxRootEntries * sizeof(DirEntry) == sectorSize);
 
                 // make sure the label is there
-                memcpy(rootEntries, label, 11); // name+ext of first entry
+                memcpy(rootEntries, volumeLabel, 11); // name+ext of first entry
                 rootEntries[0].attributes = 0x8; // label
 
                 memcpy(buf, rootEntries, sectorSize);

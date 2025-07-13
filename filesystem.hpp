@@ -9,6 +9,8 @@ namespace Filesystem
     void setTargetSize(uint32_t size);
     uint32_t getNumSectors();
 
+    void setVolumeLabel(const char *label);
+
     void addFile(uint32_t offset, uint32_t size, const char *shortName, const char *shortExt, ReadFunc readFn, const char *longName = nullptr);
     void addFile(uint32_t offset, uint32_t size, const char *longName, ReadFunc readFn);
     void resetFiles();
