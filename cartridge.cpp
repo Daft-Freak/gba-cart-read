@@ -311,6 +311,9 @@ namespace Cartridge
     void readDMG(uint16_t addr, volatile uint8_t *data, int count)
     {
         // this is basically the GBA RAM code using the other CS
+        // (but only for RAM access)
+        int cs = addr >= 0xA000 ? 0 : 0b100;
+
         assert(addr + count <= 0x10000);
 
         // data pins
@@ -319,44 +322,51 @@ namespace Cartridge
         while(count--)
         {
             pio_sm_put_blocking(pio0, pioSM, addr << 16);
-            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, 0b001)); // out address, rd+cs active
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, cs | 0b001)); // out address, rd+cs active (if needed)
             
             sleep_us(1);
 
             *data++ = gpio_get_all() >> 16;
 
-            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_null, 16) | pio_encode_sideset_opt(3, 0b011)); // discard remaining bits, rd inactive
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_null, 16) | pio_encode_sideset_opt(3, cs | 0b011)); // discard remaining bits, rd inactive
             sleep_us(1);
             addr++;
         }
 
-        pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b111)); // cs inactive
+        if(!cs)
+            pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b111)); // cs inactive
 
         highAddrData8Out();
     }
 
     void writeDMG(uint16_t addr, volatile const uint8_t *data, int count)
     {
-        pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b011)); // cs active
+        int cs = addr >= 0xA000 ? 0 : 0b100;
+
+        if(!cs)
+            pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b011)); // cs active
 
         while(count--)
         {
             gpio_put_masked(0xFF << 16, *data++ << 16); // write data
 
             pio_sm_put_blocking(pio0, pioSM, addr << 16);
-            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, 0b011)); // out address
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, cs | 0b011)); // out address
 
-            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_null, 16) | pio_encode_sideset_opt(3, 0b010)); // discard remaining bits, wr active
+            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_null, 16) | pio_encode_sideset_opt(3, cs | 0b010)); // discard remaining bits, wr active
             sleep_us(1);
 
-            pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b011)); // wr inactive
+            pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, cs | 0b011)); // wr inactive
             sleep_us(1);
 
             addr++;
         }
 
-        pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b111)); // cs inactive
-        sleep_us(1);
+        if(!cs)
+        {
+            pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b111)); // cs inactive
+            sleep_us(1);
+        }
     }
 
     void readMBC1ROM(uint32_t addr, volatile uint8_t *data, int count)
