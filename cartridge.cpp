@@ -41,8 +41,12 @@ namespace Cartridge
     CS -_____-_ ...
     RD ---_-_-- ...
     */
+#ifdef PICO_RP2350
+    static constexpr int romClkDiv = 5; // 150 / 5 / 2 = 15Mhz, program has delays for N3/S1
+#else
     static constexpr int romClkDiv = 4; // 125 / 4 / 2 = 15.625Mhz, program has delays for N3/S1
-    static constexpr int eepromClkDiv = 32; // uses N8/S8, so go 8x slower
+#endif
+    static constexpr int eepromClkDiv = romClkDiv * 8; // uses N8/S8, so go 8x slower
 
     // high address bits for GBA ROM or 8-bit data bus 
     static void highAddrData8Out()
