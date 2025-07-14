@@ -19,6 +19,13 @@ jmp x-- loop
 ; (... and this uses the 0xFFFF)
 out pindirs 16 side 0b111 ; also rom cs inactive
 
+; GBA RAM/DMG ROM reads
+.program gba_ram_read
+.side_set 3 opt
+out pins, 16 ; output address
+out null, 16 side 0b101 ; discard the rest, rd active
+in pins 24 side 0b111 ; read, rd inactive
+
 ; EEPROM reads
 .program gba_eeprom_read
 .side_set 3 opt

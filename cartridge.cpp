@@ -26,7 +26,7 @@ static const int ramCSPin = 27;
 namespace Cartridge
 {
     static int pioSM = -1;
-    static unsigned int romProgramOffset, eepromProgramOffset;
+    static unsigned int romProgramOffset, eepromProgramOffset, sramProgramOffset;
 
     static unsigned int currentProgramOffset;
     static int currentClkDiv;
@@ -50,6 +50,9 @@ namespace Cartridge
     static constexpr int romClkDiv = 4; // 125 / 4 / 2 = 15.625Mhz, program has delays for N3/S1
 #endif
     static constexpr int eepromClkDiv = romClkDiv * 8; // uses N8/S8, so go 8x slower
+    static constexpr int sramClkDiv = romClkDiv * 8; // GBA SRAM also uses 8 waits
+
+    static const int dmgClkDiv = romClkDiv * 16; // ~1MHz
 
     // high address bits for GBA ROM or 8-bit data bus 
     static void highAddrData8Out()
@@ -120,6 +123,7 @@ namespace Cartridge
         // init PIO
         romProgramOffset = pio_add_program(pio0, &gba_rom_read_program);
         eepromProgramOffset = pio_add_program(pio0, &gba_eeprom_read_program);
+        sramProgramOffset = pio_add_program(pio0, &gba_ram_read_program);
         pioSM = pio_claim_unused_sm(pio0, true);
         initPIO(pio0, pioSM, romProgramOffset);
 
@@ -199,19 +203,19 @@ namespace Cartridge
         gpio_put(ramCSPin, false); // cs active
         sleep_us(1);
 
+        // switch program
+        switchPIOProgram(sramProgramOffset, gba_ram_read_wrap_target, gba_ram_read_wrap, sramClkDiv);
+
+        pio_sm_set_enabled(pio0, pioSM, true);
+
         while(count--)
         {
             pio_sm_put_blocking(pio0, pioSM, addr << 16);
-            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, 0b101)); // out address, rd active
-            
-            sleep_us(1);
-
-            *data++ = gpio_get_all() >> 16;
-
-            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_null, 16) | pio_encode_sideset_opt(3, 0b111)); // discard remaining bits, rd inactive
-            sleep_us(1);
+            *data++ = pio_sm_get_blocking(pio0, pioSM) >> 16;
             addr++;
         }
+
+        pio_sm_set_enabled(pio0, pioSM, false);
 
         gpio_put(ramCSPin, true); // cs inactive
 
@@ -325,29 +329,36 @@ namespace Cartridge
     {
         // this is basically the GBA RAM code using the other CS
         // (but only for RAM access)
-        int cs = addr >= 0xA000 ? 0 : 0b100;
-
         assert(addr + count <= 0x10000);
 
         // data pins
         highAddrData8In();
 
+        // switch program
+        switchPIOProgram(sramProgramOffset, gba_ram_read_wrap_target, gba_ram_read_wrap, dmgClkDiv);
+
+        bool needCS = addr >= 0xA000;
+
+        if(needCS)
+        {
+            // steal the CS pin from the PIO to activate it
+            gpio_put(romCSPin, false);
+            gpio_set_function(romCSPin, GPIO_FUNC_SIO);
+        }
+
+        pio_sm_set_enabled(pio0, pioSM, true);
+
         while(count--)
         {
             pio_sm_put_blocking(pio0, pioSM, addr << 16);
-            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_pins, 16) | pio_encode_sideset_opt(3, cs | 0b001)); // out address, rd+cs active (if needed)
-            
-            sleep_us(1);
-
-            *data++ = gpio_get_all() >> 16;
-
-            pio_sm_exec(pio0, pioSM, pio_encode_out(pio_null, 16) | pio_encode_sideset_opt(3, cs | 0b011)); // discard remaining bits, rd inactive
-            sleep_us(1);
+            *data++ = pio_sm_get_blocking(pio0, pioSM) >> 16;
             addr++;
         }
 
-        if(!cs)
-            pio_sm_exec(pio0, pioSM, pio_encode_nop() | pio_encode_sideset_opt(3, 0b111)); // cs inactive
+        pio_sm_set_enabled(pio0, pioSM, false);
+
+        if(needCS)
+            gpio_set_function(romCSPin, GPIO_FUNC_PIO0);
 
         highAddrData8Out();
     }
