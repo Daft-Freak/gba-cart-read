@@ -99,6 +99,13 @@ namespace Cartridge
         pio_sm_init(pio, sm, offset, &c);
     }
 
+    static void switchPIOProgram(unsigned int offset, int start, int wrap, int clkDiv)
+    {
+        pio_sm_set_clkdiv_int_frac(pio0, pioSM, clkDiv, 0);
+        pio_sm_set_wrap(pio0, pioSM, offset + start, offset + wrap);
+        pio_sm_exec(pio0, pioSM, pio_encode_jmp(offset + start));
+    }
+
     void initIO()
     {
         // init PIO
@@ -146,10 +153,7 @@ namespace Cartridge
         gpio_put_masked(0xFF << 16, addr >> 1);
 
         // switch program
-        pio_sm_set_clkdiv_int_frac(pio0, pioSM, romClkDiv, 0);
-        auto start = romProgramOffset + gba_rom_read_wrap_target;
-        pio_sm_set_wrap(pio0, pioSM, start, romProgramOffset + gba_rom_read_wrap);
-        pio_sm_exec(pio0, pioSM, pio_encode_jmp(start));
+        switchPIOProgram(romProgramOffset, gba_rom_read_wrap_target, gba_rom_read_wrap, romClkDiv);
 
         // count and low bits of address
         pio_sm_put_blocking(pio0, pioSM, (count - 1) | ((addr >> 1) & 0xFFFF) << 16);
@@ -267,10 +271,7 @@ namespace Cartridge
         gpio_put_masked(0xFF << 16, romAddr >> 1);
 
         // switch program
-        pio_sm_set_clkdiv_int_frac(pio0, pioSM, eepromClkDiv, 0);
-        auto start = eepromProgramOffset + gba_eeprom_read_wrap_target;
-        pio_sm_set_wrap(pio0, pioSM, start, eepromProgramOffset + gba_eeprom_read_wrap);
-        pio_sm_exec(pio0, pioSM, pio_encode_jmp(start));
+        switchPIOProgram(eepromProgramOffset, gba_eeprom_read_wrap_target, gba_eeprom_read_wrap, eepromClkDiv);
 
         // counts and low bits of (rom) address
         const int addrBits = is8k ? 14 : 6;
