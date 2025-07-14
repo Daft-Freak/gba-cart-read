@@ -28,6 +28,9 @@ namespace Cartridge
     static int pioSM = -1;
     static unsigned int romProgramOffset, eepromProgramOffset;
 
+    static unsigned int currentProgramOffset;
+    static int currentClkDiv;
+
     static int dmaChannel;
 
     static int curFlashBank = -1;
@@ -101,9 +104,15 @@ namespace Cartridge
 
     static void switchPIOProgram(unsigned int offset, int start, int wrap, int clkDiv)
     {
+        if(currentProgramOffset == offset && currentClkDiv == clkDiv)
+            return;
+
         pio_sm_set_clkdiv_int_frac(pio0, pioSM, clkDiv, 0);
         pio_sm_set_wrap(pio0, pioSM, offset + start, offset + wrap);
         pio_sm_exec(pio0, pioSM, pio_encode_jmp(offset + start));
+
+        currentProgramOffset = offset;
+        currentClkDiv = clkDiv;
     }
 
     void initIO()
@@ -113,6 +122,9 @@ namespace Cartridge
         eepromProgramOffset = pio_add_program(pio0, &gba_eeprom_read_program);
         pioSM = pio_claim_unused_sm(pio0, true);
         initPIO(pio0, pioSM, romProgramOffset);
+
+        currentProgramOffset = romProgramOffset;
+        currentClkDiv = romClkDiv;
 
 #ifdef DIR_OVERRIDE_PIN
         // buffer direction control
