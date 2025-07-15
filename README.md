@@ -26,3 +26,4 @@ For the old RP2040-based boards, just build like any other pico-sdk based projec
  - MBC2
  - MBC3
  - MBC5
+ - MBC7 (256 byte EEPROM)
