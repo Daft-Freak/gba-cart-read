@@ -744,8 +744,13 @@ namespace Cartridge
     uint32_t getDMGRAMSize(const DMGHeaderInfo &header)
     {
         // MBC2 has internal RAM
-        if(getMBCType(header) == MBCType::MBC2)
+        auto mbc = getMBCType(header);
+        if(mbc == MBCType::MBC2)
             return 512;
+
+        // MBC7 has no RAM, but has EEPROM
+        if(mbc == MBCType::MBC7)
+            return 256; // correct for kirby
 
         switch(header.ramSize)
         {
