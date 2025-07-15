@@ -545,6 +545,23 @@ namespace Cartridge
         writeDMG(0x0000, &v, 1);
     }
 
+    void readMBC7ROM(uint32_t addr, volatile uint8_t *data, int count)
+    {
+        if(addr < 0x4000)
+        {
+            assert(addr + count < 0x4000);
+            readDMG(addr, data, count);
+        }
+        else
+        {
+            int bank = addr / 0x4000;
+            // switch bank
+            uint8_t v = bank;
+            writeDMG(0x2000, &v, 1);
+            readDMG(0x4000 + (addr & 0x3FFF), data, count);
+        }
+    }
+
     GBAHeaderInfo readGBAHeader()
     {
         GBAHeaderInfo header = {};
