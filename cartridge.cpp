@@ -392,6 +392,55 @@ namespace Cartridge
         }
     }
 
+    // MBC 2/3/5/7
+    static void readDMGROMBanked(uint32_t addr, volatile uint8_t *data, int count, uint16_t bankMask, uint16_t bankSwitchAddr = 0x2000)
+    {
+        if(addr < 0x4000)
+        {
+            assert(addr + count < 0x4000);
+            readDMG(addr, data, count);
+        }
+        else
+        {
+            int bank = addr / 0x4000;
+            assert(bank <= bankMask);
+
+            // switch bank
+            uint8_t v = bank & bankMask;
+            writeDMG(bankSwitchAddr, &v, 1);
+
+            // MBC5 has a 9 bit bank num
+            if(bankMask >> 8)
+            {
+                v = bank >> 8;
+                writeDMG(0x3000, &v, 1);
+            }
+            
+            readDMG(0x4000 + (addr & 0x3FFF), data, count);
+        }
+    }
+
+    // MBC1/3/5
+    static void readDMGRAMBanked(uint32_t addr, volatile uint8_t *data, int count, uint16_t bankMask)
+    {
+        // switch bank
+        int bank = addr / 0x2000;
+        assert(bank <= bankMask);
+
+        uint8_t v = bank & bankMask;
+        writeDMG(0x4000, &v, 1);
+
+        // enable RAM
+        v = 0xA;
+        writeDMG(0x0000, &v, 1);
+
+        readDMG(0xA000 + (addr & 0x1FFF), data, count);
+
+        // disable RAM
+        v = 0;
+        writeDMG(0x0000, &v, 1);
+    }
+
     void readMBC1ROM(uint32_t addr, volatile uint8_t *data, int count)
     {
         if(addr < 0x4000)
@@ -412,36 +461,12 @@ namespace Cartridge
 
     void readMBC1RAM(uint32_t addr, volatile uint8_t *data, int count)
     {
-        // TODO: bank number to 4000 if > 8k
-        // int bank = addr / 0x2000;
-    
-        // enable RAM
-        uint8_t v = 0xA;
-        writeDMG(0x0000, &v, 1);
-
-        readDMG(0xA000 + (addr & 0x1FFF), data, count);
-
-        // disable RAM
-        v = 0;
-        writeDMG(0x0000, &v, 1);
+        readDMGRAMBanked(addr, data, count, 0x3);
     }
 
     void readMBC2ROM(uint32_t addr, volatile uint8_t *data, int count)
     {
-        if(addr < 0x4000)
-        {
-            assert(addr + count < 0x4000);
-            readDMG(addr, data, count);
-        }
-        else
-        {
-            int bank = addr / 0x4000;
-            // switch bank (limited to 16)
-            uint8_t v = bank & 0xF;
-            writeDMG(0x2100, &v, 1);
-
-            readDMG(0x4000 + (addr & 0x3FFF), data, count);
-        }
+        readDMGROMBanked(addr, data, count, 0xF, 0x2100);
     }
 
     void readMBC2RAM(uint32_t addr, volatile uint8_t *data, int count)
@@ -467,99 +492,27 @@ namespace Cartridge
 
     void readMBC3ROM(uint32_t addr, volatile uint8_t *data, int count)
     {
-        if(addr < 0x4000)
-        {
-            assert(addr + count < 0x4000);
-            readDMG(addr, data, count);
-        }
-        else
-        {
-            int bank = addr / 0x4000;
-            // switch bank
-            uint8_t v = bank;
-            writeDMG(0x2000, &v, 1);
-            readDMG(0x4000 + (addr & 0x3FFF), data, count);
-        }
+        readDMGROMBanked(addr, data, count, 0x7F);
     }
 
     void readMBC3RAM(uint32_t addr, volatile uint8_t *data, int count)
     {
-        // switch bank
-        int bank = addr / 0x2000;
-        assert(bank < 8);
-
-        uint8_t v = bank;
-        writeDMG(0x4000, &v, 1);
-    
-        // enable RAM
-        v = 0xA;
-        writeDMG(0x0000, &v, 1);
-
-        readDMG(0xA000 + (addr & 0x1FFF), data, count);
-
-        // disable RAM
-        v = 0;
-        writeDMG(0x0000, &v, 1);
+        readDMGRAMBanked(addr, data, count, 0x7);
     }
 
     void readMBC5ROM(uint32_t addr, volatile uint8_t *data, int count)
     {
-        if(addr < 0x4000)
-        {
-            assert(addr + count < 0x4000);
-            readDMG(addr, data, count);
-        }
-        else
-        {
-            int bank = addr / 0x4000;
-            // switch bank
-            uint8_t v = bank & 0xFF;
-            writeDMG(0x2000, &v, 1);
-
-            v = bank >> 8;
-            writeDMG(0x3000, &v, 1);
-            
-            readDMG(0x4000 + (addr & 0x3FFF), data, count);
-        }
+        readDMGROMBanked(addr, data, count, 0x1FF);
     }
 
     void readMBC5RAM(uint32_t addr, volatile uint8_t *data, int count)
     {
-        // TODO: same as MBC3, but larger bank num
-
-        // switch bank
-        int bank = addr / 0x2000;
-        assert(bank < 16);
-
-        uint8_t v = bank;
-        writeDMG(0x4000, &v, 1);
-    
-        // enable RAM
-        v = 0xA;
-        writeDMG(0x0000, &v, 1);
-
-        readDMG(0xA000 + (addr & 0x1FFF), data, count);
-
-        // disable RAM
-        v = 0;
-        writeDMG(0x0000, &v, 1);
+        readDMGRAMBanked(addr, data, count, 0xF);
     }
 
     void readMBC7ROM(uint32_t addr, volatile uint8_t *data, int count)
     {
-        if(addr < 0x4000)
-        {
-            assert(addr + count < 0x4000);
-            readDMG(addr, data, count);
-        }
-        else
-        {
-            int bank = addr / 0x4000;
-            // switch bank
-            uint8_t v = bank;
-            writeDMG(0x2000, &v, 1);
-            readDMG(0x4000 + (addr & 0x3FFF), data, count);
-        }
+        readDMGROMBanked(addr, data, count, 0x7F);
     }
 
     void readMBC7EEPROM(uint32_t addr, volatile uint8_t *data, int count)
