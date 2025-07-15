@@ -38,7 +38,8 @@ namespace Cartridge
         MBC1M, // multicart - wired slightly differently
         MBC2,
         MBC3,
-        MBC5
+        MBC5,
+        MBC7,
     };
 
     void initIO();

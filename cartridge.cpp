@@ -769,7 +769,10 @@ namespace Cartridge
             case 0x1C: // + Rumble
             case 0x1D: // + Rumble + RAM
             case 0x1E: // + Rumble + RAM + Battery 
-                return  MBCType::MBC5;
+                return MBCType::MBC5;
+
+            case 0x22:
+                return MBCType::MBC7;
 
             default:
                 return MBCType::None;
