@@ -562,6 +562,72 @@ namespace Cartridge
         }
     }
 
+    void readMBC7EEPROM(uint32_t addr, volatile uint8_t *data, int count)
+    {
+        assert(addr + count <= 256);
+        assert(!(addr & 1));
+        assert(!(count & 1));
+
+        // enable RAM
+        uint8_t v = 0xA;
+        writeDMG(0x0000, &v, 1);
+
+        // other enable
+        v = 0x40;
+        writeDMG(0x4000, &v, 1);
+
+        auto writeEEPROMIO = [](uint8_t v)
+        {
+            writeDMG(0xA080, &v, 1);
+        };
+
+        auto data16 = reinterpret_cast<volatile uint16_t *>(data);
+
+        while(count)
+        {
+            writeEEPROMIO(0x00); // CS low
+            writeEEPROMIO(0x80); // CS high
+            writeEEPROMIO(0xC0); // CLK high (shift in 0)
+            writeEEPROMIO(0x82); // CLK low, DI high
+            writeEEPROMIO(0xC2); // CLK high (shift in 1)
+
+            // send the read command
+            uint16_t command = 0b1000000000 | (addr >> 1);
+
+            for(int i = 0; i < 10; i++, command <<= 1)
+            {
+                int bit = (command >> 9) & 1;
+
+                writeEEPROMIO(0x80 | bit << 1); // CLK low, set DI
+                writeEEPROMIO(0xC0 | bit << 1); // CLK high
+            }
+
+            // read 16 bits
+            uint16_t dataWord = 0;
+
+            for(int i = 0; i < 16; i++)
+            {
+                writeEEPROMIO(0x80); // CLK low
+                writeEEPROMIO(0xC0); // CLK high
+
+                uint8_t v;
+                readDMG(0xA080, &v, 1);
+
+                dataWord = (dataWord << 1) | (v & 1);
+            }
+
+            count -= 2;
+            addr += 2;
+            *data16++ = dataWord;
+        
+            writeEEPROMIO(0x00); // CS low
+        }
+
+        // disable RAM
+        v = 0;
+        writeDMG(0x0000, &v, 1);
+    }
+
     GBAHeaderInfo readGBAHeader()
     {
         GBAHeaderInfo header = {};
