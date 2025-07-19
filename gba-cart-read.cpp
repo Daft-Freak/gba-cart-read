@@ -231,7 +231,7 @@ int main()
                     uint32_t ramSize = Cartridge::getDMGRAMSize(header);
                     mbcType = Cartridge::getMBCType(header);
 
-                    if(!curGameCode[0])
+                    if(memcmp(curGameCode, header.title, 4) != 0)
                     {
                         Filesystem::setTargetSize(romSize + ramSize);
 
@@ -251,7 +251,7 @@ int main()
                         }
                     }
 
-                    curGameCode[0] = 1;
+                    memcpy(curGameCode, header.title, 4);
                 }
             }
 
