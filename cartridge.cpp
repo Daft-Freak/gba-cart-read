@@ -412,6 +412,8 @@ namespace Cartridge
             // MBC5 has a 9 bit bank num
             if(bankMask >> 8)
             {
+                readDMG(0x4000, &v, 1); // dummy read
+
                 v = bank >> 8;
                 writeDMG(0x3000, &v, 1);
             }
